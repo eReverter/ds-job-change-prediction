@@ -1,0 +1,144 @@
+---
+title: "Assignment 2"
+author: 'Enric Reverter & Gerard Pons'
+date: "14/10/2021"
+output:
+  html_document:
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, eval=F}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required libraries
+
+```{r}
+## Data manipulation
+require(tidyverse)
+require(dplyr)
+require(mice)
+require(Hmisc)
+
+## Statistics
+library(lsr)
+library(missMDA)
+library(VIM)
+library(chemometrics)
+library(arules)
+require(skimr)
+require(car)
+
+## Plots
+require(ggplot2)
+require(ggExtra)
+require(ggthemes)
+require(processx)
+require(plotly)
+
+require(cowplot)
+require(gridExtra)
+
+require(RColorBrewer)
+
+theme_set(theme_bw())
+
+## Set data path
+setwd("..")
+data_path = file.path(getwd(), "data")
+plot_path = file.path(getwd(), "plots")
+```
+
+
+# Data Exploration
+
+Load the dataset:
+```{r}
+df = read.csv(file.path(data_path, "jobs.csv"))
+```
+
+Sample from the original dataset:
+```{r, eval=F}
+data = read.csv(file.path(data_path, "aug_train.csv"))
+set.seed(42)
+sample = sample(1:nrow(data), 5000)
+df = data[sample,]
+write.csv(df, file.path(data_path, "jobs.csv"), row.names = FALSE)
+```
+
+Skim over it:
+```{r}
+head(df)
+summary(df)
+str(df)
+```
+
+Convert data types to the proper format:
+```{r}
+df = df %>%
+  mutate(across(where(is.character), ~ na_if(., ""))) %>%
+  mutate(across(where(is.character), ~ as.factor(.)))
+
+str(df)
+skim(df)
+```
+
+Detail of factors:
+```{r}
+df %>%
+  select(., where(is.factor)) %>%
+  sapply(., table)
+```
+
+### Missing Values
+
+There are 774 rows with more than 2 NA's. Should we delete them or impute it somehow? Sample only from observations without NA's? company_ may be due to no current work, but gender? Almost no females.
+
+First impute, then group.
+```{r}
+count_na = function(x) sum(is.na(x))
+
+aux = df %>%
+  mutate(across(matches("company"), ~ as.character(.))) %>%
+  mutate(across(matches("company"), ~ replace_na(., "No Company"))) %>%
+  mutate(across(matches("company"), ~ as.factor(.))) %>%
+  mutate(count_na = apply(., 1, count_na))
+
+summary(aux$count_na)
+```
+
+Let's suppose we drop the >2 NA's different from company:
+```{r}
+aux = aux %>%
+  filter(., count_na < 3)
+
+skim(aux)
+```
+
+Gender is still an issue.
+
+Drop all NA's:
+```{r}
+aux = aux %>%
+  drop_na()
+```
+
+Group data by all:
+```{r}
+grouped = aux %>%
+  group_by(gender, relevent_experience, enrolled_university, education_level, major_discipline, experience, company_size, company_type, last_new_job, target) %>%
+  summarise(., count = n()) %>%
+  as.data.frame()
+
+dim(grouped)
+head(grouped)
+```
+
+- City index should be discretized, same goes for training hours.
+- Not many outliers can be detected since there is no numeric data (almost). 
+
+### Outlier treatment
+
+### Imbalanced dataset -> Proportions on grouped data
