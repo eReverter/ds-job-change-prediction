@@ -102,20 +102,47 @@ table(df$last_new_job)
 ### Missing Values
 
 For NA's:
-- If education level is null and they are in university -> highschool
-- If major_discipline != NA then education_level graduate at least
-- If graduated/masters then impute major discipline, else no major discipline
+- If education level is null and they are in university -> highschool ok
+- If major_discipline != NA then education_level graduate at least ok
+- If graduated/masters then impute major discipline, else no major discipline ok
 - If experience is NA and last_new_job, company_type, company_size != 0 then impute, else delete
 - If gender is missing impute with other
 - If company information is missing impute with unknown.
 
 ```{r}
 df = df %>%
-  mutate()
+  mutate(f.enrolled = case_when(enrolled_university == "no_enrollment" ~ "No",
+                                !is.na(enrolled_university) ~ "Yes"))
 
 aux = df %>%
+  # Convert factors to strings in order to impute them
   mutate(across(where(is.factor), ~ as.character(.))) %>%
-  mutate(education_level = case_when(is.na(education_level) & enrolled_university %in% ~ )))
+  
+  # Impute education level as mentioned above
+  mutate(education_level = case_when(is.na(education_level) & f.enrolled == "Yes" ~ "Highschool",
+                                     !is.na(major_discipline) & f.enrolled != "Yes" & !(education_level %in% c("Graduate", "Masters", "Phd")) ~ "Graduate",
+                                     TRUE ~ education_level)) %>%
+  
+  # Impute major_discipline as mentioned above
+  mutate(major_discipline = case_when(is.na(major_discipline) & !(education_level %in% c("Graduate", "Masters", "Phd")) ~ "None",
+                                      is.na(major_discipline) & education_level %in% c("Graduate", "Masters", "Phd") ~ "Other",
+                                      TRUE ~ major_discipline)) %>%
+  
+  # Impute experience
+  mutate(experience = case_when(is.na(experience) & (is.na(last_new_job) & is.na(company_size) & is.na(company_type)) ~ "No Experience",
+                                TRUE ~ experience)) %>%
+  
+  # Impute gender
+  mutate(gender = case_when(is.na(gender) ~ "Other",
+                            TRUE ~ gender)) %>%
+  
+  # Impute company
+  mutate(across(matches("company_"), ~ replace_na("Unknown"))) %>%
+  
+  # Impute last job
+
+  # Convert back to factors    
+  mutate(across(where(is.character), ~ as.factor(.)))
 ```
 
 ```{r}
