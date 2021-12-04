@@ -96,11 +96,6 @@ df %>%
 table(df$last_new_job)
 ```
 
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> main
 Collapse categories for factor Experience:
 - Entry-level: 0-2
 - Junior-level: 3-4
@@ -112,10 +107,7 @@ Collapse categories for factor Company Size:
 - Small
 -Medium
 -Large
-<<<<<<< HEAD
 
-=======
->>>>>>> main
 ```{r}
 entry_level = c('<1','1','2')
 junior_level = c('3','4')
@@ -144,10 +136,6 @@ df = df %>%
 
 ```
 
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> main
 ### Missing Values
 
 For NA's:
