@@ -13,6 +13,11 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Assumptions:
+- Sample from incomplete dataset.
+- Everyone in this dataset is currently working.
+
+
 ### Required libraries
 
 ```{r}
@@ -62,7 +67,7 @@ df = read.csv(file.path(data_path, "jobs.csv"))
 Sample from the original dataset:
 ```{r, eval=F}
 data = read.csv(file.path(data_path, "aug_train.csv"))
-set.seed(42)
+set.seed(020198)
 sample = sample(1:nrow(data), 5000)
 df = data[sample,]
 write.csv(df, file.path(data_path, "jobs.csv"), row.names = FALSE)
@@ -90,19 +95,35 @@ Detail of factors:
 df %>%
   select(., where(is.factor)) %>%
   sapply(., table)
+
+table(df$last_new_job)
 ```
 
 ### Missing Values
 
-There are 774 rows with more than 2 NA's. Should we delete them or impute it somehow? Sample only from observations without NA's? company_ may be due to no current work, but gender? Almost no females.
+For NA's:
+- If education level is null and they are in university -> highschool
+- If major_discipline != NA then education_level graduate at least
+- If graduated/masters then impute major discipline, else no major discipline
+- If experience is NA and last_new_job, company_type, company_size != 0 then impute, else delete
+- If gender is missing impute with other
+- If company information is missing impute with unknown.
 
-First impute, then group.
+```{r}
+df = df %>%
+  mutate()
+
+aux = df %>%
+  mutate(across(where(is.factor), ~ as.character(.))) %>%
+  mutate(education_level = case_when(is.na(education_level) & enrolled_university %in% ~ )))
+```
+
 ```{r}
 count_na = function(x) sum(is.na(x))
 
 aux = df %>%
   mutate(across(matches("company"), ~ as.character(.))) %>%
-  mutate(across(matches("company"), ~ replace_na(., "No Company"))) %>%
+  mutate(across(matches("company"), ~ replace_na(., "NA"))) %>%
   mutate(across(matches("company"), ~ as.factor(.))) %>%
   mutate(count_na = apply(., 1, count_na))
 
