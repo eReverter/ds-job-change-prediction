@@ -99,6 +99,45 @@ df %>%
 table(df$last_new_job)
 ```
 
+Collapse categories for factor Experience:
+- Entry-level: 0-2
+- Junior-level: 3-4
+- Mid-level: 5-6
+- Senior-level: 7-10
+- Chief: 11 - INF
+
+Collapse categories for factor Company Size:
+- Small
+-Medium
+-Large
+```{r}
+entry_level = c('<1','1','2')
+junior_level = c('3','4')
+mid_level = c('5','6')
+senior_level = c('7','8','9','10')
+chief_level = c('11','12','13','14','15','16','17','18','19','20','>20')
+
+small_company = c('<10', '10/49')
+medium_company = c('50-99','100-500','500-999')
+large_company = c('1000-4999','5000-9999','10000+')
+
+df = df %>% 
+  mutate(across(where(is.factor), ~ as.character(.))) %>%
+  mutate(experience = case_when(experience %in% entry_level ~ "Entry Level",
+                                experience %in% junior_level ~ "Junior Level",
+                                experience %in% mid_level ~ "Mid Level",
+                                experience %in% senior_level ~ "Senior Level",
+                                experience %in% chief_level ~ "Chief Level",
+                                TRUE ~ experience)) %>%
+  mutate(company_size = case_when(company_size %in% small_company ~ 'Small Company',
+                                  company_size %in% medium_company ~ 'Medium Company',
+                                  company_size %in% large_company ~ 'Large Company',
+                                  TRUE ~ company_size)) %>%
+  mutate(across(where(is.character), ~ as.factor(.)))
+
+
+```
+
 ### Missing Values
 
 For NA's:
