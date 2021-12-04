@@ -74,7 +74,7 @@ write.csv(df, file.path(data_path, "jobs.csv"), row.names = FALSE)
 ```
 
 Skim over it:
-```{r}
+```{r, eval=F}
 head(df)
 summary(df)
 str(df)
@@ -85,13 +85,10 @@ Convert data types to the proper format:
 df = df %>%
   mutate(across(where(is.character), ~ na_if(., ""))) %>%
   mutate(across(where(is.character), ~ as.factor(.)))
-
-str(df)
-skim(df)
 ```
 
 Detail of factors:
-```{r}
+```{r, eval=F}
 df %>%
   select(., where(is.factor)) %>%
   sapply(., table)
@@ -99,6 +96,11 @@ df %>%
 table(df$last_new_job)
 ```
 
+<<<<<<< HEAD
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> main
 Collapse categories for factor Experience:
 - Entry-level: 0-2
 - Junior-level: 3-4
@@ -110,6 +112,10 @@ Collapse categories for factor Company Size:
 - Small
 -Medium
 -Large
+<<<<<<< HEAD
+
+=======
+>>>>>>> main
 ```{r}
 entry_level = c('<1','1','2')
 junior_level = c('3','4')
@@ -138,6 +144,10 @@ df = df %>%
 
 ```
 
+<<<<<<< HEAD
+>>>>>>> Stashed changes
+=======
+>>>>>>> main
 ### Missing Values
 
 For NA's:
@@ -153,7 +163,7 @@ df = df %>%
   mutate(f.enrolled = case_when(enrolled_university == "no_enrollment" ~ "No",
                                 !is.na(enrolled_university) ~ "Yes"))
 
-aux = df %>%
+df = df %>%
   # Convert factors to strings in order to impute them
   mutate(across(where(is.factor), ~ as.character(.))) %>%
   
@@ -176,7 +186,7 @@ aux = df %>%
                             TRUE ~ gender)) %>%
   
   # Impute company
-  mutate(across(matches("company_"), ~ replace_na("Unknown"))) %>%
+  mutate(across(matches("company_"), ~ replace_na(.,"Unknown"))) %>%
   
   # Impute last job
 
@@ -184,7 +194,7 @@ aux = df %>%
   mutate(across(where(is.character), ~ as.factor(.)))
 ```
 
-```{r}
+```{r, eval=F}
 count_na = function(x) sum(is.na(x))
 
 aux = df %>%
@@ -197,36 +207,45 @@ summary(aux$count_na)
 ```
 
 Let's suppose we drop the >2 NA's different from company:
-```{r}
+```{r, eval=F}
 aux = aux %>%
   filter(., count_na < 3)
 
 skim(aux)
 ```
 
-Gender is still an issue.
-
-Drop all NA's:
+Summary of missing values
 ```{r}
-aux = aux %>%
-  drop_na()
+colSums(is.na(df))
 ```
 
-Group data by all:
+```{r}
+
+```
+
+### Outlier treatment
+```{r, eval=F}
+summary(df$city_development_index)
+boxplot(df$city_development_index)
+```
+
+```{r, eval=F}
+summary(df$training_hours)
+boxplot(df$training_hours)
+```
+
+### Imbalanced dataset -> Proportions on grouped data
+
 ```{r}
 grouped = aux %>%
-  group_by(gender, relevent_experience, enrolled_university, education_level, major_discipline, experience, company_size, company_type, last_new_job, target) %>%
+  group_by(gender, relevent_experience, enrolled_university, education_level, major_discipline, experience, company_size, company_type, last_new_job) %>%
   summarise(., count = n()) %>%
   as.data.frame()
 
 dim(grouped)
 head(grouped)
-A = 'HOLA'
+
+arrange(grouped, desc(count))
+summary(grouped$count)
+boxplot(grouped$count)
 ```
-
-- City index should be discretized, same goes for training hours.
-- Not many outliers can be detected since there is no numeric data (almost). 
-
-### Outlier treatment
-
-### Imbalanced dataset -> Proportions on grouped data
