@@ -155,6 +155,7 @@ grouped = aux %>%
 
 dim(grouped)
 head(grouped)
+A = 'HOLA'
 ```
 
 - City index should be discretized, same goes for training hours.
