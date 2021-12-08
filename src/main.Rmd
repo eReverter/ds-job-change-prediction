@@ -127,6 +127,7 @@ df = df %>%
 
 ### Missing Values
 
+Count number of missing values across each row:
 ```{r, eval=F}
 count_na = function(x) {sum(is.na(x))}
 df = df %>%
@@ -150,6 +151,7 @@ For NA's:
 - If gender is missing impute with other
 - If company information is missing impute with unknown.
 
+Logical imputation:
 ```{r}
 df = df %>%
   mutate(f.enrolled = case_when(enrolled_university == "no_enrollment" ~ "No",
@@ -193,6 +195,7 @@ df = df %>%
   select(., -c("f.enrolled"))
 ```
 
+Class frequency:
 ```{r}
 table(df$gender)
 table(df$relevent_experience)
@@ -205,20 +208,19 @@ table(df$last_new_job)
 table(df$enrolled_university)
 ```
 
+Remaining NA's:
 ```{r}
 colSums(is.na(df))
 ```
 
-## MCA IMPUTATION
+## FAMD IMPUTATION
 
-```{r}
-res.mca = imputeMCA(select(df, !where(is.numeric) | -c("target", "city", "enrollee_id")))
-```
-
+Impute with FAMD method:
 ```{r}
 res.famd = imputeFAMD(select(df, -c("target", "city", "enrollee_id")))
 ```
 
+Compare class frequency after imputation:
 ```{r}
 prop.table(table(df$education_level))
 prop.table(table(res.mca$completeObs$education_level))
@@ -232,11 +234,19 @@ prop.table(table(res.famd$completeObs$enrolled_university))
 summary(df$training_hours)
 ```
 
+Store complete dataset:
 ```{r}
 df = data.frame(res.famd$completeObs, select(df, c("target", "city", "enrollee_id")))
 ```
 
+Write it:
+```{r, eval=F}
+write.csv(df, file.path(data_path, "jobs_compl.csv"), row.names = FALSE)
+```
+
 ### Outlier treatment
+
+Look at univariant outliers:
 ```{r, eval=F}
 extreme_out = quantile(df$training_hours)[[4]]+3*IQR(df$training_hours)
 ggplot(data = df, aes(x="", y=training_hours)) +
