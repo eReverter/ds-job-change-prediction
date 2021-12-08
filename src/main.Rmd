@@ -138,6 +138,24 @@ df = df %>%
 
 ### Missing Values
 
+```{r, eval=F}
+count_na = function(x) {sum(is.na(x))}
+
+df = df %>%
+  mutate(across(matches("company"), ~ as.character(.))) %>%
+  mutate(across(matches("company"), ~ na_if(., "NA"))) %>%
+  mutate(across(matches("company"), ~ as.factor(.))) %>%
+  mutate(count_na = apply(., 1, count_na))
+
+summary(df$count_na)
+boxplot(df$count_na)
+table(df$count_na)
+
+df = df %>%
+  filter(., count_na < 5) %>%
+  select(., -c("count_na"))
+```
+
 For NA's:
 - If education level is null and they are in university -> highschool ok
 - If major_discipline != NA then education_level graduate at least ok
@@ -174,9 +192,10 @@ df = df %>%
                             TRUE ~ gender)) %>%
   
   # Impute company
-  mutate(across(matches("company_"), ~ replace_na(.,"Other"))) %>%
-  
-  # Impute last job
+  mutate(company_size = case_when(is.na(company_size) ~ "Unknown",
+                                  TRUE ~ company_size)) %>%
+  mutate(company_type = case_when(is.na(company_type) ~ "Other",
+                                  TRUE ~ company_type)) %>%
 
   # Convert back to factors    
   mutate(across(where(is.character), ~ as.factor(.)))
@@ -185,25 +204,12 @@ df = df %>%
 ```{r}
 table(df$gender)
 table(df$relevent_experience)
-table(df$education_level) # Collapse PhD and Primary School
-table(df$major_discipline) # Collapse major_discipline
+table(df$education_level) # Collapse PhD and Primary School?
+table(df$major_discipline) # Collapse major_discipline?
 table(df$experience)
 table(df$company_type) # It is not other, it is unknown, what should we do
-table(df$company_size)
+table(df$company_size) # Ask Lidia
 table(df$last_new_job)
-```
-
-
-```{r, eval=F}
-count_na = function(x) sum(is.na(x))
-
-aux = df %>%
-  mutate(across(matches("company"), ~ as.character(.))) %>%
-  mutate(across(matches("company"), ~ replace_na(., "NA"))) %>%
-  mutate(across(matches("company"), ~ as.factor(.))) %>%
-  mutate(count_na = apply(., 1, count_na))
-
-summary(aux$count_na)
 ```
 
 Let's suppose we drop the >2 NA's different from company:
