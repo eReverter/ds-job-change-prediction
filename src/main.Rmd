@@ -26,7 +26,6 @@ require(tidyverse)
 require(dplyr)
 require(mice)
 require(Hmisc)
-
 ## Statistics
 library(lsr)
 library(missMDA)
@@ -35,21 +34,16 @@ library(chemometrics)
 library(arules)
 require(skimr)
 require(car)
-
 ## Plots
 require(ggplot2)
 require(ggExtra)
 require(ggthemes)
 require(processx)
 require(plotly)
-
 require(cowplot)
 require(gridExtra)
-
 require(RColorBrewer)
-
 theme_set(theme_bw())
-
 ## Set data path
 setwd("..")
 data_path = file.path(getwd(), "data")
@@ -92,7 +86,6 @@ Detail of factors:
 df %>%
   select(., where(is.factor)) %>%
   sapply(., table)
-
 table(df$last_new_job)
 ```
 
@@ -114,11 +107,9 @@ junior_level = c('3','4')
 mid_level = c('5','6')
 senior_level = c('7','8','9','10')
 chief_level = c('11','12','13','14','15','16','17','18','19','20','>20')
-
 small_company = c('<10', '10/49')
 medium_company = c('50-99','100-500','500-999')
 large_company = c('1000-4999','5000-9999','10000+')
-
 df = df %>% 
   mutate(across(where(is.factor), ~ as.character(.))) %>%
   mutate(experience = case_when(experience %in% entry_level ~ "Entry Level",
@@ -132,25 +123,20 @@ df = df %>%
                                   company_size %in% large_company ~ 'Large Company',
                                   TRUE ~ company_size)) %>%
   mutate(across(where(is.character), ~ as.factor(.)))
-
-
 ```
 
 ### Missing Values
 
 ```{r, eval=F}
 count_na = function(x) {sum(is.na(x))}
-
 df = df %>%
   mutate(across(matches("company"), ~ as.character(.))) %>%
   mutate(across(matches("company"), ~ na_if(., "NA"))) %>%
   mutate(across(matches("company"), ~ as.factor(.))) %>%
   mutate(count_na = apply(., 1, count_na))
-
 summary(df$count_na)
 boxplot(df$count_na)
 table(df$count_na)
-
 df = df %>%
   filter(., count_na < 5) %>%
   select(., -c("count_na"))
@@ -168,7 +154,6 @@ For NA's:
 df = df %>%
   mutate(f.enrolled = case_when(enrolled_university == "no_enrollment" ~ "No",
                                 !is.na(enrolled_university) ~ "Yes"))
-
 df = df %>%
   # Convert factors to strings in order to impute them
   mutate(across(where(is.factor), ~ as.character(.))) %>%
@@ -238,15 +223,12 @@ res.famd = imputeFAMD(select(df, -c("target", "city", "enrollee_id")))
 prop.table(table(df$education_level))
 prop.table(table(res.mca$completeObs$education_level))
 prop.table(table(res.famd$completeObs$education_level))
-
 prop.table(table(df$last_new_job))
 prop.table(table(res.mca$completeObs$last_new_job))
 prop.table(table(res.famd$completeObs$last_new_job))
-
 prop.table(table(df$enrolled_university))
 prop.table(table(res.mca$completeObs$enrolled_university))
 prop.table(table(res.famd$completeObs$enrolled_university))
-
 summary(df$training_hours)
 ```
 
@@ -257,7 +239,6 @@ df = data.frame(res.famd$completeObs, select(df, c("target", "city", "enrollee_i
 ### Outlier treatment
 ```{r, eval=F}
 extreme_out = quantile(df$training_hours)[[4]]+3*IQR(df$training_hours)
-
 ggplot(data = df, aes(x="", y=training_hours)) +
   geom_boxplot(width=0.5) +
   geom_hline(yintercept = extreme_out, color="red") +
@@ -266,31 +247,22 @@ labs(title='Boxplot Training Hours',
      y="Training Hours") +
   # Do not show x axis
   theme(axis.text.x=element_blank(), axis.ticks.x = element_blank(), axis.line.x = element_blank(), axis.title.x=element_blank())
-
 num_outliers = df %>%
   filter(., training_hours > extreme_out) %>%
   nrow()
-
 num_outliers
-
 outliers = df %>%
   filter(., training_hours > extreme_out)
-
 prop.table(table(df$gender))
 prop.table(table(outliers$gender))
-
 prop.table(table(df$relevent_experience))
 prop.table(table(outliers$relevent_experience))
-
 prop.table(table(df$enrolled_university))
 prop.table(table(outliers$enrolled_university))
-
 prop.table(table(df$education_level))
 prop.table(table(outliers$education_level))
-
 prop.table(table(df$major_discipline))
 prop.table(table(outliers$major_discipline))
-
 prop.table(table(df$last_new_job))
 prop.table(table(outliers$last_new_job))
 ```
