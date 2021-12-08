@@ -22,27 +22,30 @@ Assumptions:
 
 ```{r, eval=F}
 ## Data manipulation
-require(tidyverse)
-require(dplyr)
-require(mice)
-require(Hmisc)
+library(tidyverse)
+library(dplyr)
+library(mice)
+library(Hmisc)
 ## Statistics
 library(lsr)
 library(missMDA)
 library(VIM)
 library(chemometrics)
 library(arules)
-require(skimr)
-require(car)
+library(skimr)
+library(car)
+library(FactoMineR)
+library(factoextra)
+library(effects)
 ## Plots
-require(ggplot2)
-require(ggExtra)
-require(ggthemes)
-require(processx)
-require(plotly)
-require(cowplot)
-require(gridExtra)
-require(RColorBrewer)
+library(ggplot2)
+library(ggExtra)
+library(ggthemes)
+library(processx)
+library(plotly)
+library(cowplot)
+library(gridExtra)
+library(RColorBrewer)
 theme_set(theme_bw())
 ## Set data path
 setwd("..")
@@ -280,5 +283,102 @@ prop.table(table(outliers$last_new_job))
 ```{r, eval=F}
 summary(df$training_hours)
 boxplot(df$training_hours)
+```
+
+# Modelization
+
+```{r}
+cat = FactoMineR::catdes(df[,-c(13:14)], 12)
+cat$test.chi2
+cat$quanti.var
+cat$category
+cat$quanti
+```
+
+```{r}
+df = select(df, -c("city", "enrollee_id"))
+m0 = glm(target ~ 1, data=df, family=binomial)
+summary(m0)
+```
+
+```{r}
+m1 = glm(target ~ training_hours, data=df, family=binomial)
+m2 = glm(target ~ city_development_index, data=df, family=binomial)
+
+m3 = glm(target ~ training_hours+city_development_index, data=df, family=binomial)
+m4 = glm(target ~ training_hours*city_development_index, data=df, family=binomial)
+```
+
+```{r}
+# Gross effects
+anova(m0,m1,test="Chisq")
+anova(m0,m2,test="Chisq")
+
+# Net effects
+anova(m1,m3,test="Chisq")
+anova(m2,m3,test="Chisq")
+
+# Interaction effects
+anova(m3,m4,test="Chisq")
+```
+
+```{r}
+marginalModelPlots(m3)
+```
+
+```{r}
+m5 = glm(target ~ training_hours+I(city_development_index^-0.5), data=df, family=binomial)
+marginalModelPlots(m5)
+AIC(m3,m5)
+```
+
+```{r}
+m6 = step(glm(target ~ I(city_development_index^-0.5) + ., data=df, family=binomial), k = log(nrow(df)))
+```
+
+```{r}
+AIC(m5,m6)
+```
+
+Try size*(educ + city)
+```{r}
+m7 = glm(target ~ company_size*(education_level+I(city_development_index^-0.5)), data=df, family=binomial)
+anova(m6,m7,test="Chisq")
+AIC(m6,m7)
+summary(m7)
+```
+
+```{r}
+interaction.plot(df$company_size, df$education_level, as.numeric(df$target))
+```
+
+```{r}
+m1 = step(glm(target ~ ., data=df, family=binomial), k = log(nrow(df)))
+avPlots(m1)
+par(mfrow=c(2,2))
+plot(m1) 
+par(mfrow=c(1,1))
+plot(allEffects(m7),ask=FALSE)
+residualPlots(m7)
+crPlots(m1)
+marginalModelPlots(m1)
+outlierTest(m1)
+influencePlot(m7)
+```
+
+```{r}
+eff <- allEffects(m7) 
+
+plot(eff, main= FALSE,rug=FALSE,colors=1, band.colors=3, col=1, 
+     xlim=c(0, 20), ylim = qlogis(c(0.1, 0.6))) # also log(c(.1, .6)/c(.6, .1))
+```
+
+```{r}
+df %>%
+  group_by(gender, relevent_experience, enrolled_university, education_level, major_discipline, experience, company_size, company_type, last_new_job) %>%
+  summarise(count = n()) %>%
+  colnames()
+
+aux
 ```
 
