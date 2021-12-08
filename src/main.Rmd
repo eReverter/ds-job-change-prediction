@@ -202,8 +202,10 @@ df = df %>%
                                   TRUE ~ company_type)) %>%
   
   # Convert back to factors    
-  mutate(across(where(is.character), ~ as.factor(.)))
-
+  mutate(across(where(is.character), ~ as.factor(.))) %>%
+  
+  # Drop unused columns
+  select(., -c("f.enrolled"))
 ```
 
 ```{r}
@@ -219,7 +221,6 @@ table(df$enrolled_university)
 ```
 
 ```{r}
-df = df %>% select()
 colSums(is.na(df))
 ```
 
@@ -242,12 +243,19 @@ prop.table(table(df$last_new_job))
 prop.table(table(res.mca$completeObs$last_new_job))
 prop.table(table(res.famd$completeObs$last_new_job))
 
+prop.table(table(df$enrolled_university))
+prop.table(table(res.mca$completeObs$enrolled_university))
+prop.table(table(res.famd$completeObs$enrolled_university))
+
 summary(df$training_hours)
+```
+
+```{r}
+df = data.frame(res.famd$completeObs, select(df, c("target", "city", "enrollee_id")))
 ```
 
 ### Outlier treatment
 ```{r, eval=F}
-
 extreme_out = quantile(df$training_hours)[[4]]+3*IQR(df$training_hours)
 
 ggplot(data = df, aes(x="", y=training_hours)) +
@@ -269,24 +277,22 @@ outliers = df %>%
   filter(., training_hours > extreme_out)
 
 prop.table(table(df$gender))
-prop.table(table(outilers$gender))
-
+prop.table(table(outliers$gender))
 
 prop.table(table(df$relevent_experience))
-prop.table(table(outilers$relevent_experience))
+prop.table(table(outliers$relevent_experience))
 
 prop.table(table(df$enrolled_university))
-prop.table(table(outilers$enrolled_university))
+prop.table(table(outliers$enrolled_university))
 
 prop.table(table(df$education_level))
-prop.table(table(outilers$education_level))
+prop.table(table(outliers$education_level))
 
 prop.table(table(df$major_discipline))
-prop.table(table(outilers$major_discipline))
+prop.table(table(outliers$major_discipline))
 
 prop.table(table(df$last_new_job))
-prop.table(table(outilers$last_new_job))
-
+prop.table(table(outliers$last_new_job))
 ```
 
 ```{r, eval=F}
