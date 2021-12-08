@@ -84,7 +84,7 @@ Convert data types to the proper format:
 ```{r}
 df = df %>%
   mutate(across(where(is.character), ~ na_if(., ""))) %>%
-  mutate(across(where(is.character), ~ as.factor(.)))
+  mutate(across(where(is.character) | matches("target"), ~ as.factor(.)))
 ```
 
 Detail of factors:
@@ -175,13 +175,17 @@ df = df %>%
   
   # Impute education level as mentioned above
   mutate(education_level = case_when(is.na(education_level) & f.enrolled == "Yes" ~ "High School",
-                                     !is.na(major_discipline) & f.enrolled != "Yes" & !(education_level %in% c("Graduate", "Masters", "Phd")) ~ "Graduate",
+                                     !is.na(major_discipline) & !(education_level %in% c("Graduate", "Masters", "Phd")) ~ "Graduate",
                                      TRUE ~ education_level)) %>%
   
   # Impute major_discipline as mentioned above
   mutate(major_discipline = case_when(is.na(major_discipline) & !(education_level %in% c("Graduate", "Masters", "Phd")) ~ "No Major",
                                       is.na(major_discipline) & education_level %in% c("Graduate", "Masters", "Phd") ~ "Other",
                                       TRUE ~ major_discipline)) %>%
+  
+  # Impute enrolled_university
+  mutate(enrolled_university = case_when(is.na(enrolled_university) & education_level %in% c("Masters", "Phd") ~ "no_enrollment",
+                                         TRUE ~ enrolled_university)) %>%
   
   # Impute experience
   mutate(experience = case_when(is.na(experience) & (is.na(last_new_job) & is.na(company_size) & is.na(company_type)) ~ "Entry Level",
@@ -196,9 +200,10 @@ df = df %>%
                                   TRUE ~ company_size)) %>%
   mutate(company_type = case_when(is.na(company_type) ~ "Other",
                                   TRUE ~ company_type)) %>%
-
+  
   # Convert back to factors    
   mutate(across(where(is.character), ~ as.factor(.)))
+
 ```
 
 ```{r}
@@ -210,6 +215,34 @@ table(df$experience)
 table(df$company_type) # It is not other, it is unknown, what should we do
 table(df$company_size) # Ask Lidia
 table(df$last_new_job)
+table(df$enrolled_university)
+```
+
+```{r}
+df = df %>% select()
+colSums(is.na(df))
+```
+
+## MCA IMPUTATION
+
+```{r}
+res.mca = imputeMCA(select(df, !where(is.numeric) | -c("target", "city", "enrollee_id")))
+```
+
+```{r}
+res.famd = imputeFAMD(select(df, -c("target", "city", "enrollee_id")))
+```
+
+```{r}
+prop.table(table(df$education_level))
+prop.table(table(res.mca$completeObs$education_level))
+prop.table(table(res.famd$completeObs$education_level))
+
+prop.table(table(df$last_new_job))
+prop.table(table(res.mca$completeObs$last_new_job))
+prop.table(table(res.famd$completeObs$last_new_job))
+
+summary(df$training_hours)
 ```
 
 ### Outlier treatment
