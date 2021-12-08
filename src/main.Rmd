@@ -20,7 +20,7 @@ Assumptions:
 
 ### Required libraries
 
-```{r}
+```{r, eval=F}
 ## Data manipulation
 require(tidyverse)
 require(dplyr)
@@ -156,17 +156,17 @@ df = df %>%
   mutate(across(where(is.factor), ~ as.character(.))) %>%
   
   # Impute education level as mentioned above
-  mutate(education_level = case_when(is.na(education_level) & f.enrolled == "Yes" ~ "Highschool",
+  mutate(education_level = case_when(is.na(education_level) & f.enrolled == "Yes" ~ "High School",
                                      !is.na(major_discipline) & f.enrolled != "Yes" & !(education_level %in% c("Graduate", "Masters", "Phd")) ~ "Graduate",
                                      TRUE ~ education_level)) %>%
   
   # Impute major_discipline as mentioned above
-  mutate(major_discipline = case_when(is.na(major_discipline) & !(education_level %in% c("Graduate", "Masters", "Phd")) ~ "None",
+  mutate(major_discipline = case_when(is.na(major_discipline) & !(education_level %in% c("Graduate", "Masters", "Phd")) ~ "No Major",
                                       is.na(major_discipline) & education_level %in% c("Graduate", "Masters", "Phd") ~ "Other",
                                       TRUE ~ major_discipline)) %>%
   
   # Impute experience
-  mutate(experience = case_when(is.na(experience) & (is.na(last_new_job) & is.na(company_size) & is.na(company_type)) ~ "No Experience",
+  mutate(experience = case_when(is.na(experience) & (is.na(last_new_job) & is.na(company_size) & is.na(company_type)) ~ "Entry Level",
                                 TRUE ~ experience)) %>%
   
   # Impute gender
@@ -174,13 +174,25 @@ df = df %>%
                             TRUE ~ gender)) %>%
   
   # Impute company
-  mutate(across(matches("company_"), ~ replace_na(.,"Unknown"))) %>%
+  mutate(across(matches("company_"), ~ replace_na(.,"Other"))) %>%
   
   # Impute last job
 
   # Convert back to factors    
   mutate(across(where(is.character), ~ as.factor(.)))
 ```
+
+```{r}
+table(df$gender)
+table(df$relevent_experience)
+table(df$education_level) # Collapse PhD and Primary School
+table(df$major_discipline) # Collapse major_discipline
+table(df$experience)
+table(df$company_type) # It is not other, it is unknown, what should we do
+table(df$company_size)
+table(df$last_new_job)
+```
+
 
 ```{r, eval=F}
 count_na = function(x) sum(is.na(x))
