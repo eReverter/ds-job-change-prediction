@@ -212,23 +212,6 @@ table(df$company_size) # Ask Lidia
 table(df$last_new_job)
 ```
 
-Let's suppose we drop the >2 NA's different from company:
-```{r, eval=F}
-aux = aux %>%
-  filter(., count_na < 3)
-
-skim(aux)
-```
-
-Summary of missing values
-```{r}
-colSums(is.na(df))
-```
-
-```{r}
-
-```
-
 ### Outlier treatment
 ```{r, eval=F}
 summary(df$city_development_index)
@@ -240,18 +223,3 @@ summary(df$training_hours)
 boxplot(df$training_hours)
 ```
 
-### Imbalanced dataset -> Proportions on grouped data
-
-```{r}
-grouped = aux %>%
-  group_by(gender, relevent_experience, enrolled_university, education_level, major_discipline, experience, company_size, company_type, last_new_job) %>%
-  summarise(., count = n()) %>%
-  as.data.frame()
-
-dim(grouped)
-head(grouped)
-
-arrange(grouped, desc(count))
-summary(grouped$count)
-boxplot(grouped$count)
-```
