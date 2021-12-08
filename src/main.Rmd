@@ -214,8 +214,46 @@ table(df$last_new_job)
 
 ### Outlier treatment
 ```{r, eval=F}
-summary(df$city_development_index)
-boxplot(df$city_development_index)
+
+extreme_out = quantile(df$training_hours)[[4]]+3*IQR(df$training_hours)
+
+ggplot(data = df, aes(x="", y=training_hours)) +
+  geom_boxplot(width=0.5) +
+  geom_hline(yintercept = extreme_out, color="red") +
+  scale_y_continuous(labels=scales::comma) 
+labs(title='Boxplot Training Hours',
+     y="Training Hours") +
+  # Do not show x axis
+  theme(axis.text.x=element_blank(), axis.ticks.x = element_blank(), axis.line.x = element_blank(), axis.title.x=element_blank())
+
+num_outliers = df %>%
+  filter(., training_hours > extreme_out) %>%
+  nrow()
+
+num_outliers
+
+outliers = df %>%
+  filter(., training_hours > extreme_out)
+
+prop.table(table(df$gender))
+prop.table(table(outilers$gender))
+
+
+prop.table(table(df$relevent_experience))
+prop.table(table(outilers$relevent_experience))
+
+prop.table(table(df$enrolled_university))
+prop.table(table(outilers$enrolled_university))
+
+prop.table(table(df$education_level))
+prop.table(table(outilers$education_level))
+
+prop.table(table(df$major_discipline))
+prop.table(table(outilers$major_discipline))
+
+prop.table(table(df$last_new_job))
+prop.table(table(outilers$last_new_job))
+
 ```
 
 ```{r, eval=F}
