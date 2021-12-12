@@ -369,6 +369,28 @@ anova(m6,m8,test='Chisq')
 anova(m7,m8,test='Chisq')
 AIC(m6,m7,m8)
 ```
+As we only got one relevant interaction with BIC criterion, and the two interaction terms are between the set of variables that BIC proposes as additive as well, it was decided to further explore if the interactions between the other BIC relevant improved the model.
+
+As it can be seen, adding the interaction of company_size * education_level results in a significant improvement of the model. Adding however education_level*city_development results in a slightly different model with a very similar AIC value. However, adding this interaction to model 9, results in a statistically different and better model.
+```{r}
+m9 = glm(target ~ (I(city_development_index^(-0.5))+ education_level)*company_size + relevent_experience + 
+    experience + company_type + last_new_job + training_hours, family = "binomial", data = df)
+
+m10 = glm(target ~ (company_size+ education_level)*I(city_development_index^(-0.5)) + relevent_experience + 
+    experience + company_type + last_new_job + training_hours, family = "binomial", data = df)
+
+m11 =  glm(target ~ (I(city_development_index^(-0.5))+ education_level)*company_size + relevent_experience + 
+    experience + company_type + last_new_job + training_hours + education_level*I(city_development_index^(-0.5)) , family = "binomial", data = df)
+
+anova(m8,m9,test='Chisq')
+anova(m8,m10,test='Chisq')
+anova(m9,m11,test='Chisq')
+
+
+
+AIC(m8,m9,m10,m11)
+
+```
 
 ```{r}
 interaction.plot(df$company_size, df$education_level, as.numeric(df$target))
