@@ -247,7 +247,7 @@ summary(df$training_hours)
 
 Store complete dataset:
 ```{r}
-df = data.frame(res.famd$completeObs, select(df, c("target", "city", "enrollee_id")))
+df = data.frame(res.famd$completeObs, select(df, c("target", "city", "enrollee_id", "imputed")))
 ```
 
 Write it:
@@ -309,6 +309,7 @@ df = select(df, -c("city", "enrollee_id"))
 m0 = glm(target ~ 1, data=df, family=binomial)
 summary(m0)
 ```
+
 INSPACT THE NUMERICAL VARIABLES
 ```{r}
 m1 = glm(target ~ training_hours, data=df, family=binomial)
@@ -330,16 +331,19 @@ anova(m2,m3,test="Chisq")
 # Interaction effects
 anova(m3,m4,test="Chisq")
 ```
+
 The marginal model plots suggest a  ^(-1/2) transformation over the city development variable
 ```{r}
 marginalModelPlots(m3)
 ```
+
 As it can be seen, the transformation increases the fitness, and it results in a better model following AIC criterion. 
 ```{r}
 m5 = glm(target ~ training_hours+I(city_development_index^-0.5), data=df, family=binomial)
 marginalModelPlots(m5)
 AIC(m3,m5)
 ```
+
 Now, the additive effect of variables is explored by using the step function with AIC, to be more permissive.
 ```{r}
 maux = glm(target ~ I(city_development_index^-0.5) + ., data=df, family=binomial)
@@ -369,20 +373,12 @@ anova(m7,m8,test='Chisq')
 AIC(m6,m7,m8)
 ```
 
-
 ```{r}
 interaction.plot(df$company_size, df$education_level, as.numeric(df$target))
 ```
 
 ```{r}
 # SUMMARY OF USEFUL PLOTS
-m8 = glm(target ~ education_level + I(city_development_index^-0.5) + ., data=df, family=binomial)
-m8.2 = step(m8, scope = ~.^2, k = log(nrow(df)))
-m8.1 = step(m8, k = 2)
-```
-
-```{r}
-m1 = step(glm(target ~ ., data=df, family=binomial), k = log(nrow(df)))
 avPlots(m1)
 par(mfrow=c(2,2))
 plot(m1) 
@@ -400,8 +396,5 @@ eff <- allEffects(m7)
 
 plot(eff, main= FALSE,rug=FALSE,colors=1, band.colors=3, col=1, 
      xlim=c(0, 20), ylim = qlogis(c(0.1, 0.6))) # also log(c(.1, .6)/c(.6, .1))
-```
-
-```{r}
 ```
 
