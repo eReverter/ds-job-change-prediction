@@ -302,7 +302,7 @@ cat$quanti
 
 INSPECT THE NULL MODEL
 ```{r}
-df = select(df, -c("city", "enrollee_id"))
+df = select(df, -c("city", "enrollee_id", "imputed"))
 m0 = glm(target ~ 1, data=df, family=binomial)
 summary(m0)
 ```
@@ -343,7 +343,7 @@ AIC(m3,m5)
 
 Now, the additive effect of variables is explored by using the step function with AIC, to be more permissive.
 ```{r}
-maux = glm(target ~ I(city_development_index^-0.5) + ., data=df, family=binomial)
+maux = glm(target ~ I(city_development_index^-0.5) + . - city_development_index, data=df, family=binomial)
 m6 = step(maux)
 vif(m6)
 ```
@@ -369,6 +369,7 @@ anova(m6,m8,test='Chisq')
 anova(m7,m8,test='Chisq')
 AIC(m6,m7,m8)
 ```
+
 As we only got one relevant interaction with BIC criterion, and the two interaction terms are between the set of variables that BIC proposes as additive as well, it was decided to further explore if the interactions between the other BIC relevant improved the model.
 
 As it can be seen, adding the interaction of company_size * education_level results in a significant improvement of the model. Adding however education_level*city_development results in a slightly different model with a very similar AIC value. However, adding this interaction to model 9, results in a statistically different and better model.
@@ -386,10 +387,48 @@ anova(m8,m9,test='Chisq')
 anova(m8,m10,test='Chisq')
 anova(m9,m11,test='Chisq')
 
-
-
 AIC(m8,m9,m10,m11)
+```
 
+ROC Curve:
+```{r}
+library(pROC)
+prob=predict(m8, type=c("response"))
+df$prob=prob
+g = roc(target ~ prob, data = df)
+plot(g)
+```
+
+Area under the ROC Curve:
+```{r}
+auc(df$target, prob)
+```
+
+Model diagnostics:
+```{r}
+residuals_p = residuals(m8, type="pearson")
+residuals_d = residuals(m8, type="deviance")
+residuals_s = rstudent(m8)
+hat = hatvalues(m8)
+cook = cooks.distance(m8)
+beta = dfbetas(m8)
+outlierTest(m8)
+residualPlots(m8)
+marginalModelPlots(m8)
+```
+
+```{r}
+scatterplot(hat, residuals_p)
+```
+
+```{r}
+residualPlots(m8, layout=c(1, 3))
+influenceIndexPlot(m8, id.n=10)
+matplot(dfbetas(m8),type='l')
+abline(h=sqrt(2/(dim(df)[1])),lty=3,col=6)
+abline(h=-sqrt(2/(dim(df)[1])),lty=3,col=6)
+lines(sqrt(cook),lwd=3,col=1)
+# legend(locator(n=1),legend=c(names(as.data.frame(dfbetas(m8))),"Cook D"), col=c(1:3,1), lty=c(3,3,3,1) )
 ```
 
 ```{r}
