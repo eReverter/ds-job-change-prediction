@@ -220,7 +220,7 @@ Indicator of rows which still have NA's:
 ```{r}
 imputed_indicator = function(x) {if(count_na(x)>0) {return(TRUE)} else {return(FALSE)}}
 
-aux = df %>%
+df = df %>%
   mutate(imputed = apply(., 1, imputed_indicator))
 ```
 
@@ -234,13 +234,10 @@ res.famd = imputeFAMD(select(df, -c("target", "city", "enrollee_id", "imputed"))
 Compare class frequency after imputation:
 ```{r}
 prop.table(table(df$education_level))
-prop.table(table(res.mca$completeObs$education_level))
 prop.table(table(res.famd$completeObs$education_level))
 prop.table(table(df$last_new_job))
-prop.table(table(res.mca$completeObs$last_new_job))
 prop.table(table(res.famd$completeObs$last_new_job))
 prop.table(table(df$enrolled_university))
-prop.table(table(res.mca$completeObs$enrolled_university))
 prop.table(table(res.famd$completeObs$enrolled_university))
 summary(df$training_hours)
 ```
@@ -296,7 +293,7 @@ boxplot(df$training_hours)
 # Modelization
 
 ```{r}
-cat = FactoMineR::catdes(df[,-c(13:14)], 12)
+cat = FactoMineR::catdes(df[,-c(13:15)], 12)
 cat$test.chi2
 cat$quanti.var
 cat$category
