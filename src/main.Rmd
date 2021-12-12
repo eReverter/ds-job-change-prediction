@@ -375,16 +375,13 @@ interaction.plot(df$company_size, df$education_level, as.numeric(df$target))
 ```
 
 ```{r}
-<<<<<<< Updated upstream
 # SUMMARY OF USEFUL PLOTS
-=======
 m8 = glm(target ~ education_level + I(city_development_index^-0.5) + ., data=df, family=binomial)
 m8.2 = step(m8, scope = ~.^2, k = log(nrow(df)))
 m8.1 = step(m8, k = 2)
 ```
 
 ```{r}
->>>>>>> Stashed changes
 m1 = step(glm(target ~ ., data=df, family=binomial), k = log(nrow(df)))
 avPlots(m1)
 par(mfrow=c(2,2))
