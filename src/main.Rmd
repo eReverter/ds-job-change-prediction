@@ -131,7 +131,7 @@ df = df %>%
 ### Missing Values
 
 Count number of missing values across each row:
-```{r, eval=F}
+```{r}
 count_na = function(x) {sum(is.na(x))}
 df = df %>%
   mutate(across(matches("company"), ~ as.character(.))) %>%
@@ -393,7 +393,7 @@ AIC(m8,m9,m10,m11)
 ROC Curve:
 ```{r}
 library(pROC)
-prob=predict(m8, type=c("response"))
+prob=predict(m11, type=c("response"))
 df$prob=prob
 g = roc(target ~ prob, data = df)
 plot(g)
