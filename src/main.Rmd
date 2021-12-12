@@ -211,16 +211,24 @@ table(df$last_new_job)
 table(df$enrolled_university)
 ```
 
-Remaining NA's:
+Remaining NA's depicted below. See how at most we have 2% of missing values on last_new_job:
 ```{r}
 colSums(is.na(df))
+```
+
+Indicator of rows which still have NA's:
+```{r}
+imputed_indicator = function(x) {if(count_na(x)>0) {return(TRUE)} else {return(FALSE)}}
+
+aux = df %>%
+  mutate(imputed = apply(., 1, imputed_indicator))
 ```
 
 ## FAMD IMPUTATION
 
 Impute with FAMD method:
 ```{r}
-res.famd = imputeFAMD(select(df, -c("target", "city", "enrollee_id")))
+res.famd = imputeFAMD(select(df, -c("target", "city", "enrollee_id", "imputed")))
 ```
 
 Compare class frequency after imputation:
@@ -367,7 +375,16 @@ interaction.plot(df$company_size, df$education_level, as.numeric(df$target))
 ```
 
 ```{r}
+<<<<<<< Updated upstream
 # SUMMARY OF USEFUL PLOTS
+=======
+m8 = glm(target ~ education_level + I(city_development_index^-0.5) + ., data=df, family=binomial)
+m8.2 = step(m8, scope = ~.^2, k = log(nrow(df)))
+m8.1 = step(m8, k = 2)
+```
+
+```{r}
+>>>>>>> Stashed changes
 m1 = step(glm(target ~ ., data=df, family=binomial), k = log(nrow(df)))
 avPlots(m1)
 par(mfrow=c(2,2))
@@ -389,11 +406,5 @@ plot(eff, main= FALSE,rug=FALSE,colors=1, band.colors=3, col=1,
 ```
 
 ```{r}
-df %>%
-  group_by(gender, relevent_experience, enrolled_university, education_level, major_discipline, experience, company_size, company_type, last_new_job) %>%
-  summarise(count = n()) %>%
-  colnames()
-
-aux
 ```
 
