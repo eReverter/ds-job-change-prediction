@@ -295,12 +295,13 @@ cat$category
 cat$quanti
 ```
 
+INSPECT THE NULL MODEL
 ```{r}
 df = select(df, -c("city", "enrollee_id"))
 m0 = glm(target ~ 1, data=df, family=binomial)
 summary(m0)
 ```
-
+INSPACT THE NUMERICAL VARIABLES
 ```{r}
 m1 = glm(target ~ training_hours, data=df, family=binomial)
 m2 = glm(target ~ city_development_index, data=df, family=binomial)
@@ -321,38 +322,52 @@ anova(m2,m3,test="Chisq")
 # Interaction effects
 anova(m3,m4,test="Chisq")
 ```
-
+The marginal model plots suggest a  ^(-1/2) transformation over the city development variable
 ```{r}
 marginalModelPlots(m3)
 ```
-
+As it can be seen, the transformation increases the fitness, and it results in a better model following AIC criterion. 
 ```{r}
 m5 = glm(target ~ training_hours+I(city_development_index^-0.5), data=df, family=binomial)
 marginalModelPlots(m5)
 AIC(m3,m5)
 ```
-
+Now, the additive effect of variables is explored by using the step function with AIC, to be more permissive.
 ```{r}
-m6 = step(glm(target ~ I(city_development_index^-0.5) + ., data=df, family=binomial), k = log(nrow(df)))
+maux = glm(target ~ I(city_development_index^-0.5) + ., data=df, family=binomial)
+m6 = step(maux)
+vif(m6)
 ```
 
 ```{r}
+anova(m5,m6,test="Chisq")
 AIC(m5,m6)
 ```
 
-Try size*(educ + city)
+To check for interactions, we use the step function again, but now with BIC criterion, to be more restrictive.
+
 ```{r}
-m7 = glm(target ~ company_size*(education_level+I(city_development_index^-0.5)), data=df, family=binomial)
-anova(m6,m7,test="Chisq")
-AIC(m6,m7)
-summary(m7)
+m7 = step(maux , scope = . ~ .^2, k = log(nrow(df)))
 ```
+
+As we can obviously see, the results of the additive terms with BIC are a set of the ones with AIC, an one interaction is preserved. The merged model is as follows:
+```{r}
+m8 = glm(target ~ I(city_development_index^(-0.5))*company_size + relevent_experience + 
+    education_level + experience + company_type + 
+    last_new_job + training_hours, family = "binomial", data = df)
+
+anova(m6,m8,test='Chisq')
+anova(m7,m8,test='Chisq')
+AIC(m6,m7,m8)
+```
+
 
 ```{r}
 interaction.plot(df$company_size, df$education_level, as.numeric(df$target))
 ```
 
 ```{r}
+# SUMMARY OF USEFUL PLOTS
 m1 = step(glm(target ~ ., data=df, family=binomial), k = log(nrow(df)))
 avPlots(m1)
 par(mfrow=c(2,2))
