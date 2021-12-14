@@ -274,7 +274,7 @@ summary(df$n.experience)
 summary(df$experience)
 ```
 
-Since company size has a lit of NA's we do not convert it into numerical. Otherwise, the imputation would not make any sense.
+Since company size has a lot of NA's we do not convert it into numerical. Otherwise, the imputation would not make any sense.
 
 Write the dataset:
 ```{r, eval=F}
@@ -335,6 +335,38 @@ df = select(df, -c("city", "enrollee_id", "imputed"))
 m0 = glm(target ~ 1, data=df, family=binomial)
 summary(m0)
 ```
+
+HOW TO WORK WITH EXPERIENCE: We consider it as numeric and numeric with a third degree polynomial. The p-value suggests that the 3 degree in not useful, and that we can work with order 2 (we can draw that conclusion because the variables constructed by poly are orthogonal). Additionally, with a deviance test it can be observed that in fact the second order transformation results in a better model than without the transformation.
+After that, this model is compared against a model using the categorical experience, and as they are not nested models we can not use the deviance test (anova), so AIC has been used. It can be seen that The polynomial model is better than the categorical.
+However a questions arises here : does the LARGE number of categories in experience hinder the power of modeling it as a factor? A logical collapse was attempted and the model was statistically significant (p-value <0.05) and better than without collapsing. However, when compared against the numerical models, it was still worse than them. Hence, it was decided to work with the numerical of order 2.
+```{r}
+
+mnexp = glm(target ~ n.experience, data=df, family=binomial)
+mnexppoly = glm(target ~ poly(n.experience,3), data=df, family=binomial)
+summary(mnexppoly)
+mnexppoly = glm(target ~ poly(n.experience,2), data=df, family=binomial)
+anova(mnexp,mnexppoly,test='Chisq')
+
+
+mcexp = glm(target ~ experience, data=df, family=binomial)
+
+summary(mnexpp)
+anova(mnexp,mnexppoly,test='Chisq')
+AIC(mcexp,mnexp,mnexppoly)
+
+
+
+## ----------------need to collapse, an error arises for me:(--------------------------##
+
+mcexpcol = glm(target ~ colapsed_exp, data=df, family=binomial)
+
+
+anova(mcexpcol,mcexp,test='Chisq')
+
+AIC(mcexp,mcexpcol,mnexppoly,mnexp)
+
+```
+
 
 INSPACT THE NUMERICAL VARIABLES
 ```{r}
