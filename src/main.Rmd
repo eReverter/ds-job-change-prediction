@@ -104,7 +104,7 @@ Collapse categories for factor Company Size:
 -Medium
 -Large
 
-```{r}
+```{r, eval=F}
 entry_level = c('<1','1','2')
 junior_level = c('3','4')
 mid_level = c('5','6')
@@ -127,7 +127,7 @@ df = df %>%
                                   TRUE ~ company_size)) %>%
   mutate(across(where(is.character), ~ as.factor(.)))
 ```
-
+ 
 ### Missing Values
 
 Count number of missing values across each row:
@@ -179,7 +179,7 @@ df = df %>%
                                          TRUE ~ enrolled_university)) %>%
   
   # Impute experience
-  mutate(experience = case_when(is.na(experience) & (is.na(last_new_job) & is.na(company_size) & is.na(company_type)) ~ "Entry Level",
+  mutate(experience = case_when(is.na(experience) & (is.na(last_new_job) & is.na(company_size) & is.na(company_type)) ~ "<1",
                                 TRUE ~ experience)) %>%
   
   # Impute gender
@@ -248,7 +248,35 @@ Store complete dataset:
 df = data.frame(res.famd$completeObs, select(df, c("target", "city", "enrollee_id", "imputed")))
 ```
 
-Write it:
+Mutate strings after FAMD converted them into dummy:
+```{r}
+df = df %>%
+  mutate(across(where(is.factor), ~ as.character(.))) %>%
+  mutate(gender = str_remove(gender, "gender_")) %>%
+  mutate(major_discipline = str_remove(major_discipline, "major_discipline_")) %>%
+  mutate(company_type = str_remove(company_type, "company_type_")) %>%
+  mutate(experience = str_remove(experience, "experience_")) %>%
+  mutate(last_new_job = str_remove(last_new_job, "last_new_job_")) %>%
+  mutate(across(where(is.character), ~ as.factor(.)))
+```
+
+Convert experience into a numerical variable:
+```{r}
+df = df %>%
+  mutate(across(where(is.factor), ~ as.character(.))) %>%
+  mutate(n.experience = case_when(experience == "<1" ~ "0",
+                                experience == ">20" ~ "25",
+                                TRUE ~ experience)) %>%
+  mutate(n.experience = as.integer(n.experience)) %>%
+  mutate(across(where(is.character), ~ as.factor(.)))
+
+summary(df$n.experience)
+summary(df$experience)
+```
+
+Since company size has a lit of NA's we do not convert it into numerical. Otherwise, the imputation would not make any sense.
+
+Write the dataset:
 ```{r, eval=F}
 write.csv(df, file.path(data_path, "jobs_compl.csv"), row.names = FALSE)
 ```
