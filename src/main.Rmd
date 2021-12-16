@@ -110,9 +110,11 @@ junior_level = c('3','4')
 mid_level = c('5','6')
 senior_level = c('7','8','9','10')
 chief_level = c('11','12','13','14','15','16','17','18','19','20','>20')
+
 small_company = c('<10', '10/49')
 medium_company = c('50-99','100-500','500-999')
 large_company = c('1000-4999','5000-9999','10000+')
+
 df = df %>% 
   mutate(across(where(is.factor), ~ as.character(.))) %>%
   mutate(experience = case_when(experience %in% entry_level ~ "Entry Level",
@@ -274,6 +276,14 @@ summary(df$n.experience)
 summary(df$experience)
 ```
 
+Convert city development index into a categorical variable:
+```{r}
+groups = 5
+
+df$f.city_development_index = as.ordered(cut2(df$city_development_index, g=groups, m=nrow(df)/groups))
+table(df$f.city_development_index)
+```
+
 Since company size has a lot of NA's we do not convert it into numerical. Otherwise, the imputation would not make any sense.
 
 Write the dataset:
@@ -286,6 +296,7 @@ write.csv(df, file.path(data_path, "jobs_compl.csv"), row.names = FALSE)
 Look at univariant outliers:
 ```{r, eval=F}
 extreme_out = quantile(df$training_hours)[[4]]+3*IQR(df$training_hours)
+
 ggplot(data = df, aes(x="", y=training_hours)) +
   geom_boxplot(width=0.5) +
   geom_hline(yintercept = extreme_out, color="red") +
@@ -294,12 +305,15 @@ labs(title='Boxplot Training Hours',
      y="Training Hours") +
   # Do not show x axis
   theme(axis.text.x=element_blank(), axis.ticks.x = element_blank(), axis.line.x = element_blank(), axis.title.x=element_blank())
+
 num_outliers = df %>%
   filter(., training_hours > extreme_out) %>%
   nrow()
 num_outliers
+
 outliers = df %>%
   filter(., training_hours > extreme_out)
+
 prop.table(table(df$gender))
 prop.table(table(outliers$gender))
 prop.table(table(df$relevent_experience))
@@ -339,55 +353,93 @@ summary(m0)
 HOW TO WORK WITH EXPERIENCE: We consider it as numeric and numeric with a third degree polynomial. The p-value suggests that the 3 degree in not useful, and that we can work with order 2 (we can draw that conclusion because the variables constructed by poly are orthogonal). Additionally, with a deviance test it can be observed that in fact the second order transformation results in a better model than without the transformation.
 After that, this model is compared against a model using the categorical experience, and as they are not nested models we can not use the deviance test (anova), so AIC has been used. It can be seen that The polynomial model is better than the categorical.
 However a questions arises here : does the LARGE number of categories in experience hinder the power of modeling it as a factor? A logical collapse was attempted and the model was statistically significant (p-value <0.05) and better than without collapsing. However, when compared against the numerical models, it was still worse than them. Hence, it was decided to work with the numerical of order 2.
+
+Q: Should we use Anova() in any case? Due to the imbalance on the target (4:1).
 ```{r}
-
 mnexp = glm(target ~ n.experience, data=df, family=binomial)
-mnexppoly = glm(target ~ poly(n.experience,3), data=df, family=binomial)
+mnexppoly3 = glm(target ~ poly(n.experience,3), data=df, family=binomial)
 summary(mnexppoly)
-mnexppoly = glm(target ~ poly(n.experience,2), data=df, family=binomial)
-anova(mnexp,mnexppoly,test='Chisq')
-
+mnexppoly2 = glm(target ~ poly(n.experience,2), data=df, family=binomial)
+anova(mnexppoly2, mnexppoly3, test='Chisq')
+anova(mnexp,mnexppoly2,test='Chisq')
 
 mcexp = glm(target ~ experience, data=df, family=binomial)
 
 summary(mnexpp)
 anova(mnexp,mnexppoly,test='Chisq')
 AIC(mcexp,mnexp,mnexppoly)
-
-
-
-## ----------------need to collapse, an error arises for me:(--------------------------##
-
-mcexpcol = glm(target ~ colapsed_exp, data=df, family=binomial)
-
-
-anova(mcexpcol,mcexp,test='Chisq')
-
-AIC(mcexp,mcexpcol,mnexppoly,mnexp)
-
 ```
 
+Let's look at collapsed experience in two different ways. Logical and by quartiles -> Logical is better:
+```{r}
+entry_level = c('<1','1','2')
+junior_level = c('3','4')
+mid_level = c('5','6')
+senior_level = c('7','8','9','10')
+chief_level = c('11','12','13','14','15','16','17','18','19','20','>20')
 
-INSPACT THE NUMERICAL VARIABLES
+df = df %>% 
+  mutate(across(where(is.factor), ~ as.character(.))) %>%
+  mutate(collapsed_exp = case_when(experience %in% entry_level ~ "Entry Level",
+                                experience %in% junior_level ~ "Junior Level",
+                                experience %in% mid_level ~ "Mid Level",
+                                experience %in% senior_level ~ "Senior Level",
+                                experience %in% chief_level ~ "Chief Level",
+                                TRUE ~ experience)) %>%
+  mutate(across(where(is.character), ~ as.factor(.)))
+
+
+groups = 5
+
+df$collapsed_exp2 = as.ordered(cut2(df$n.experience, g=groups, m=nrow(df)/groups))
+table(df$collapsed_exp)
+table(df$collapsed_exp2)
+```
+
+Hereby we can observe how numerical experience improves more the model:
+```{r}
+mcexpcol = glm(target ~ collapsed_exp, data=df, family=binomial)
+mcexpcol2 = glm(target ~ collapsed_exp2, data=df, family=binomial)
+
+anova(mcexpcol, mcexpcol2, test='Chisq')
+
+anova(mcexpcol,mcexp,test='Chisq')
+anova(mcexpcol2,mcexp,test='Chisq')
+
+AIC(mcexp,mcexpcol,mnexppoly,mnexp, mcexpcol2)
+```
+
+The same analysis can be done for the city development index -> discretized cdi without previous transformation is much better:
+```{r}
+mncdi = glm(target ~ city_development_index, data=df, family=binomial); summary(mncdi) # Numerical
+mfcdi = glm(target ~ f.city_development_index, data=df, family=binomial); summary(mfcdi) # Categorical (collapsed above)
+
+anova(mncdi, mfcdi, test='Chisq')
+AIC(mncdi, mfcdi)
+
+# For the improved cdi^-0.5 - known from the marginal model plots
+mncdi_tr = glm(target ~ I(city_development_index^-0.5), data=df, family=binomial)
+anova(mncdi_tr, mfcdi, test='Chisq')
+AIC(mncdi_tr, mfcdi)
+
+# Discretizing the transformed index
+groups = 5
+
+df$f.city_development_index_tr = as.ordered(cut2(df$city_development_index^-0.5, g=groups, m=nrow(df)/groups))
+mfcdi_tr = glm(target ~ f.city_development_index_tr, data=df, family=binomial)
+anova(mfcdi, mfcdi_tr, test='Chisq')
+AIC(mfcdi, mfcdi_tr)
+```
+
+---
+# This is just for the transformation of ^-0.5
+Inspect the numerical variables:
 ```{r}
 m1 = glm(target ~ training_hours, data=df, family=binomial)
 m2 = glm(target ~ city_development_index, data=df, family=binomial)
 
 m3 = glm(target ~ training_hours+city_development_index, data=df, family=binomial)
 m4 = glm(target ~ training_hours*city_development_index, data=df, family=binomial)
-```
-
-```{r}
-# Gross effects
-anova(m0,m1,test="Chisq")
-anova(m0,m2,test="Chisq")
-
-# Net effects
-anova(m1,m3,test="Chisq")
-anova(m2,m3,test="Chisq")
-
-# Interaction effects
-anova(m3,m4,test="Chisq")
 ```
 
 The marginal model plots suggest a  ^(-1/2) transformation over the city development variable
@@ -401,24 +453,79 @@ m5 = glm(target ~ training_hours+I(city_development_index^-0.5), data=df, family
 marginalModelPlots(m5)
 AIC(m3,m5)
 ```
+---
+
+Further inspect the numerical variables:
+```{r}
+m1 = glm(target ~ training_hours, data=df, family=binomial)
+m2 = glm(target ~ poly(n.experience,2), data=df, family=binomial)
+
+m3 = glm(target ~ training_hours+poly(n.experience,2), data=df, family=binomial)
+m4 = glm(target ~ training_hours*poly(n.experience,2), data=df, family=binomial)
+```
+
+```{r}
+# Gross effects
+anova(m0,m1,test="Chisq")
+anova(m0,m2,test="Chisq")
+
+# Net effects
+anova(m1,m3,test="Chisq")
+anova(m2,m3,test="Chisq")
+
+# Interaction effects
+anova(m3,m4,test="Chisq")
+
+AIC(m0, m1, m2, m3, m4) # Either m2 or m3! 
+```
+
+The marginal model plots do not suggest any transformations:
+```{r}
+marginalModelPlots(m3) # Fits perfectly :)
+```
 
 Now, the additive effect of variables is explored by using the step function with AIC, to be more permissive.
 ```{r}
-maux = glm(target ~ I(city_development_index^-0.5) + . - city_development_index, data=df, family=binomial)
+aux = select(df, -c("experience", "collapsed_exp", "collapsed_exp2", "city_development_index", "f.city_development_index_tr"))
+```
+
+```{r}
+maux = glm(target ~ poly(n.experience,2) + ., data=aux, family=binomial)
 m6 = step(maux)
 vif(m6)
 ```
 
 ```{r}
-anova(m5,m6,test="Chisq")
-AIC(m5,m6)
+anova(m4,m6,test="Chisq")
+AIC(m4,m6)
 ```
 
 To check for interactions, we use the step function again, but now with BIC criterion, to be more restrictive.
-
 ```{r}
 m7 = step(maux , scope = . ~ .^2, k = log(nrow(df)))
+AIC(m4, m7)
 ```
+
+---
+# BIC with n.cdi and f.cdi -> f.cdi much better
+
+In the numerical there is interaction with company size, in the categorical not!
+```{r}
+aux = select(df, -c("experience", "collapsed_exp", "collapsed_exp2", "f.city_development_index", "f.city_development_index_tr"))
+mn = glm(target ~ poly(n.experience,2) + ., data=aux, family=binomial)
+mn_bic = step(mn , scope = . ~ .^2, k = log(nrow(df)))
+
+aux = select(df, -c("experience", "collapsed_exp", "collapsed_exp2", "city_development_index", "f.city_development_index_tr"))
+mf = glm(target ~ poly(n.experience,2) + ., data=aux, family=binomial)
+mf_bic = step(mf , scope = . ~ .^2, k = log(nrow(df)))
+
+AIC(mn_bic, mf_bic)
+```
+
+# Gross effects/BIC with company size uncollapsed and collapsed
+```{r}
+```
+---
 
 As we can obviously see, the results of the additive terms with BIC are a set of the ones with AIC, an one interaction is preserved. The merged model is as follows:
 ```{r}
@@ -426,9 +533,9 @@ m8 = glm(target ~ I(city_development_index^(-0.5))*company_size + relevent_exper
     education_level + experience + company_type + 
     last_new_job + training_hours, family = "binomial", data = df)
 
-anova(m6,m8,test='Chisq')
+anova(m4,m8,test='Chisq')
 anova(m7,m8,test='Chisq')
-AIC(m6,m7,m8)
+AIC(m4,m7,m8)
 ```
 
 As we only got one relevant interaction with BIC criterion, and the two interaction terms are between the set of variables that BIC proposes as additive as well, it was decided to further explore if the interactions between the other BIC relevant improved the model.
@@ -455,7 +562,7 @@ AIC(m8,m9,m10,m11)
 ROC Curve:
 ```{r}
 library(pROC)
-prob=predict(m11, type=c("response"))
+prob=predict(mf_bic, type=c("response"))
 df$prob=prob
 g = roc(target ~ prob, data = df)
 plot(g)
@@ -468,15 +575,15 @@ auc(df$target, prob)
 
 Model diagnostics:
 ```{r}
-residuals_p = residuals(m11, type="pearson")
-residuals_d = residuals(m11, type="deviance")
-residuals_s = rstudent(m11)
-hat = hatvalues(m11)
-cook = cooks.distance(m11)
-beta = dfbetas(m11)
-outlierTest(m11)
-residualPlots(m11)
-marginalModelPlots(m11)
+residuals_p = residuals(m7, type="pearson")
+residuals_d = residuals(m7, type="deviance")
+residuals_s = rstudent(m7)
+hat = hatvalues(m7)
+cook = cooks.distance(m7)
+beta = dfbetas(m7)
+outlierTest(m7)
+residualPlots(m7)
+marginalModelPlots(m7)
 ```
 
 ```{r}
