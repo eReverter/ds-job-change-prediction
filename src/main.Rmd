@@ -357,17 +357,17 @@ However a questions arises here : does the LARGE number of categories in experie
 Q: Should we use Anova() in any case? Due to the imbalance on the target (4:1).
 ```{r}
 mnexp = glm(target ~ n.experience, data=df, family=binomial)
+summary(mnexp)
 mnexppoly3 = glm(target ~ poly(n.experience,3), data=df, family=binomial)
-summary(mnexppoly)
+summary(mnexppoly3)
 mnexppoly2 = glm(target ~ poly(n.experience,2), data=df, family=binomial)
-anova(mnexppoly2, mnexppoly3, test='Chisq')
+summary(mnexppoly2)
 anova(mnexp,mnexppoly2,test='Chisq')
 
 mcexp = glm(target ~ experience, data=df, family=binomial)
-
-summary(mnexpp)
-anova(mnexp,mnexppoly,test='Chisq')
-AIC(mcexp,mnexp,mnexppoly)
+summary(mcexp)
+anova(mnexp,mnexppoly2,test='Chisq')
+AIC(mcexp,mnexp,mnexppoly2)
 ```
 
 Let's look at collapsed experience in two different ways. Logical and by quartiles -> Logical is better:
