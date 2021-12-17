@@ -92,6 +92,7 @@ df %>%
 table(df$last_new_job)
 ```
 
+REMOVE
 Collapse categories for factor Experience:
 - Entry-level: 0-2
 - Junior-level: 3-4
@@ -105,6 +106,7 @@ Collapse categories for factor Company Size:
 -Large
 
 ```{r, eval=F}
+#REMOVE
 entry_level = c('<1','1','2')
 junior_level = c('3','4')
 mid_level = c('5','6')
@@ -132,7 +134,7 @@ df = df %>%
  
 ### Missing Values
 
-Count number of missing values across each row:
+As it can be seen, the dataset contains a lot of missing values, in some cases even exceeding the 30% of values from an attribute. These high values conditioned the imputation methods, which was first done using logical methods. Moreover, there are observations with more than 50% of the variables as null, which have been decided to be eliminated.
 ```{r}
 count_na = function(x) {sum(is.na(x))}
 df = df %>%
@@ -149,15 +151,15 @@ df = df %>%
   select(., -c("count_na"))
 ```
 
-For NA's:
-- If education level is null and they are in university -> highschool ok
-- If major_discipline != NA then education_level graduate at least ok
-- If graduated/masters then impute major discipline, else no major discipline ok
-- If experience is NA and last_new_job, company_type, company_size != 0 then impute, else delete
-- If gender is missing impute with other
-- If company information is missing impute with unknown.
+The rules used for logically imputation where as follow:
 
-Logical imputation:
+- If the education level is null but they are enrolled in university, the education is set to highschool.
+- If major discipline is not null, the education level should be at least graduate.
+- If company information is missing, it is imputed with Unknown, as the number of missing values for company information exceeds 30%.
+- If gender is missing, it is imputed with Unknown, as there are nearly 30% of missing values in gender.
+- If Major_Discipline is null, it is imputed with Other if the education level is Graduate, Masters or PhD, and imputed to No Major otherwise.
+- If Experience ,Last_New_Job and Company information are null, the experience is imputed to <1.
+
 ```{r}
 df = df %>%
   mutate(f.enrolled = case_when(enrolled_university == "no_enrollment" ~ "No",
@@ -200,9 +202,10 @@ df = df %>%
   # Drop unused columns
   select(., -c("f.enrolled"))
 ```
-
+REMOVE
 Class frequency:
 ```{r}
+#REMOVE
 table(df$gender)
 table(df$relevent_experience)
 table(df$education_level) # Collapse PhD and Primary School?
@@ -214,13 +217,12 @@ table(df$last_new_job)
 table(df$enrolled_university)
 ```
 
-Remaining NA's depicted below. See how at most we have 2% of missing values on last_new_job:
-```{r}
-colSums(is.na(df))
-```
+After the logical imputation, the NA values do not account for more than 2% in any of the categories, and it was decided to impute them with factorial analysis for mixed data. It must be noted that a new flag attribute ‘Imputed’ was created, in order to keep track of these imputed observations when modelling, as they could cause problems.
 
 Indicator of rows which still have NA's:
 ```{r}
+colSums(is.na(df))
+
 imputed_indicator = function(x) {if(count_na(x)>0) {return(TRUE)} else {return(FALSE)}}
 
 df = df %>%
@@ -234,7 +236,7 @@ Impute with FAMD method:
 res.famd = imputeFAMD(select(df, -c("target", "city", "enrollee_id", "imputed")))
 ```
 
-Compare class frequency after imputation:
+As it can be seen, the class frequencies after imputation have been compared to the ones before it, and there is no notable change.
 ```{r}
 prop.table(table(df$education_level))
 prop.table(table(res.famd$completeObs$education_level))
@@ -261,6 +263,7 @@ df = df %>%
   mutate(last_new_job = str_remove(last_new_job, "last_new_job_")) %>%
   mutate(across(where(is.character), ~ as.factor(.)))
 ```
+With the complete dataset, some new attributes have been created: a new numerical variable has been created from the factor experience and a new factor has been created from the variable of city development. In future steps, it will be decided which one is the most suitable for the modelling process. It must be noted that since company size had a lot of NA, it has not been converted into numerical.
 
 Convert experience into a numerical variable:
 ```{r}
@@ -284,8 +287,6 @@ df$f.city_development_index = as.ordered(cut2(df$city_development_index, g=group
 table(df$f.city_development_index)
 ```
 
-Since company size has a lot of NA's we do not convert it into numerical. Otherwise, the imputation would not make any sense.
-
 Write the dataset:
 ```{r, eval=F}
 write.csv(df, file.path(data_path, "jobs_compl.csv"), row.names = FALSE)
@@ -293,7 +294,8 @@ write.csv(df, file.path(data_path, "jobs_compl.csv"), row.names = FALSE)
 
 ### Outlier treatment
 
-Look at univariant outliers:
+Univariate outliers can not be seen in the dataset for the two numerical variables present. One could think that training_hours contains some outliers, as they are above the extreme threshold. However, they are not too extreme and all of them have a very plausible value, hence imputation would not be a good practice in this case.
+
 ```{r, eval=F}
 extreme_out = quantile(df$training_hours)[[4]]+3*IQR(df$training_hours)
 
@@ -329,11 +331,15 @@ prop.table(table(outliers$last_new_job))
 ```
 
 ```{r, eval=F}
+#REMOVE
 summary(df$training_hours)
 boxplot(df$training_hours)
 ```
 
 # Modelization
+
+Before starting with the model, it is interesting to describe the response variable. It can be seen that it is significantly associated with all the numerical and categorical variables, except for training_hours, which sits really close to the threshold. It is also worth noting that the variables which have been kept in purpose both in numerical and categorical form are the ones that have a more significant association, meaning that the future assessment of how to treat them will be of particular interest. Overall, what can be said is that in general people who want to change jobs tend to be from less developed cities, have less experience and lower education.
+
 
 ```{r}
 cat = FactoMineR::catdes(df[,-c(13:15)], 12)
@@ -343,6 +349,13 @@ cat$category
 cat$quanti
 ```
 
+Before starting with the modelling, the data should be split into working and test datasets, so that the created model can be compared and assessed with data that it has not seen, hence limiting overfitting.
+```{r}
+train = ''
+test = ''
+```
+
+
 INSPECT THE NULL MODEL
 ```{r}
 df = select(df, -c("city", "enrollee_id", "imputed"))
@@ -350,9 +363,10 @@ m0 = glm(target ~ 1, data=df, family=binomial)
 summary(m0)
 ```
 
-HOW TO WORK WITH EXPERIENCE: We consider it as numeric and numeric with a third degree polynomial. The p-value suggests that the 3 degree in not useful, and that we can work with order 2 (we can draw that conclusion because the variables constructed by poly are orthogonal). Additionally, with a deviance test it can be observed that in fact the second order transformation results in a better model than without the transformation.
-After that, this model is compared against a model using the categorical experience, and as they are not nested models we can not use the deviance test (anova), so AIC has been used. It can be seen that The polynomial model is better than the categorical.
-However a questions arises here : does the LARGE number of categories in experience hinder the power of modeling it as a factor? A logical collapse was attempted and the model was statistically significant (p-value <0.05) and better than without collapsing. However, when compared against the numerical models, it was still worse than them. Hence, it was decided to work with the numerical of order 2.
+After computing the null model, it was assessed how to treat the attribute experience, as a factor or as a numerical variable. 
+
+Regarding being numerical, polynomial transformations were applied to it. It was seen that the p-value for a third degree polynomial suggests that this transformation is not needed (this conclusion can only be drawn because the variables constructed by Poly function are orthogonal), hence only a second order polynomial was kept. Using deviance tests, the comparison with the normal variable and the transformed one yield significantly different models, and with a better performance for the transformed one.
+
 
 Q: Should we use Anova() in any case? Due to the imbalance on the target (4:1).
 ```{r}
@@ -364,13 +378,12 @@ mnexppoly2 = glm(target ~ poly(n.experience,2), data=df, family=binomial)
 summary(mnexppoly2)
 anova(mnexp,mnexppoly2,test='Chisq')
 
-mcexp = glm(target ~ experience, data=df, family=binomial)
-summary(mcexp)
-anova(mnexp,mnexppoly2,test='Chisq')
-AIC(mcexp,mnexp,mnexppoly2)
 ```
 
-Let's look at collapsed experience in two different ways. Logical and by quartiles -> Logical is better:
+Regarding treating it as a factor, as it has more than 20 categories, some collapsations have been found to improve the model results:
+-Collapsing by quantiles
+-Collapsing the model logically in Entry Level, Junior Level, Mid Level, Senior Level and Chief Level, using some well defined year ranges for the Data Science field.
+
 ```{r}
 entry_level = c('<1','1','2')
 junior_level = c('3','4')
@@ -395,21 +408,30 @@ df$collapsed_exp2 = as.ordered(cut2(df$n.experience, g=groups, m=nrow(df)/groups
 table(df$collapsed_exp)
 table(df$collapsed_exp2)
 ```
+Comparing both collapsed models, the logically collapsed results in the best one.
 
-Hereby we can observe how numerical experience improves more the model:
-```{r}
+```{r} 
+mcexp = glm(target ~ experience, data=df, family=binomial)
+summary(mcexp)
+
 mcexpcol = glm(target ~ collapsed_exp, data=df, family=binomial)
 mcexpcol2 = glm(target ~ collapsed_exp2, data=df, family=binomial)
 
-anova(mcexpcol, mcexpcol2, test='Chisq')
 
-anova(mcexpcol,mcexp,test='Chisq')
 anova(mcexpcol2,mcexp,test='Chisq')
+anova(mcexpcol, mcexpcol2, test='Chisq')
+anova(mcexpcol,mcexp,test='Chisq')
 
+```
+
+After getting the best numerical and categorical transformations for the variable, the models created with them were compared. As they are not nested models, the deviance test anova() can not be applied, and it was decided to use AIC instead. It can be clearly seen that the numerical treatment of the variable outperforms the categorical, hence is the one that will be used in the following models. 
+
+```{r}
 AIC(mcexp,mcexpcol,mnexppoly,mnexp, mcexpcol2)
 ```
 
-The same analysis can be done for the city development index -> discretized cdi without previous transformation is much better:
+The same analysis can be done for the city development index (which will not be extensively reported). Even after performing the transformation suggested by the MarginalModelPlots, the discretized version of the city development index is much better.
+
 ```{r}
 mncdi = glm(target ~ city_development_index, data=df, family=binomial); summary(mncdi) # Numerical
 mfcdi = glm(target ~ f.city_development_index, data=df, family=binomial); summary(mfcdi) # Categorical (collapsed above)
@@ -418,7 +440,9 @@ anova(mncdi, mfcdi, test='Chisq')
 AIC(mncdi, mfcdi)
 
 # For the improved cdi^-0.5 - known from the marginal model plots
+marginalModelPlots(mncdi)
 mncdi_tr = glm(target ~ I(city_development_index^-0.5), data=df, family=binomial)
+marginalModelPlots(mncdi_tr)
 anova(mncdi_tr, mfcdi, test='Chisq')
 AIC(mncdi_tr, mfcdi)
 
@@ -431,7 +455,11 @@ anova(mfcdi, mfcdi_tr, test='Chisq')
 AIC(mfcdi, mfcdi_tr)
 ```
 
+
+
 ---
+REMOVE
+#INTEGRATE THIS SOMEHOW 
 # This is just for the transformation of ^-0.5
 Inspect the numerical variables:
 ```{r}
@@ -441,12 +469,12 @@ m2 = glm(target ~ city_development_index, data=df, family=binomial)
 m3 = glm(target ~ training_hours+city_development_index, data=df, family=binomial)
 m4 = glm(target ~ training_hours*city_development_index, data=df, family=binomial)
 ```
-
+REMOVE
 The marginal model plots suggest a  ^(-1/2) transformation over the city development variable
 ```{r}
 marginalModelPlots(m3)
 ```
-
+REMOVE
 As it can be seen, the transformation increases the fitness, and it results in a better model following AIC criterion. 
 ```{r}
 m5 = glm(target ~ training_hours+I(city_development_index^-0.5), data=df, family=binomial)
@@ -455,7 +483,9 @@ AIC(m3,m5)
 ```
 ---
 
-Further inspect the numerical variables:
+After having chosen the best variables to work with, the focus was on the two numerical variables, whose models were compared with and without interactions. As it can be seen with the deviance test, adding training hours to the model, either as an interaction or addition, does not yield a statistically different model, hence the second order transformation is kept.
+
+
 ```{r}
 m1 = glm(target ~ training_hours, data=df, family=binomial)
 m2 = glm(target ~ poly(n.experience,2), data=df, family=binomial)
@@ -476,37 +506,34 @@ anova(m2,m3,test="Chisq")
 # Interaction effects
 anova(m3,m4,test="Chisq")
 
-AIC(m0, m1, m2, m3, m4) # Either m2 or m3! 
+AIC(m0, m1, m2, m3, m4) # Either m2 or m3! GERARD: per anova-> m2 
 ```
 
-The marginal model plots do not suggest any transformations:
+Assessing it with marginal model plots, no transformations are suggested, as it yields a perfect fit.
 ```{r}
-marginalModelPlots(m3) # Fits perfectly :)
+marginalModelPlots(m2) 
 ```
 
-Now, the additive effect of variables is explored by using the step function with AIC, to be more permissive.
+After that, the additive effect of variables is explored by using a step function with AIC, to be more permissive. It results in suggesting the addition of 7 of the variables to the model, which is significantly different and much better than the previous best one. Also, multicollinearity was discarded by doing a vif test.
+
 ```{r}
 aux = select(df, -c("experience", "collapsed_exp", "collapsed_exp2", "city_development_index", "f.city_development_index_tr"))
-```
-
-```{r}
 maux = glm(target ~ poly(n.experience,2) + ., data=aux, family=binomial)
-m6 = step(maux)
-vif(m6)
+m5 = step(maux)
+vif(m5)
+anova(m2,m5,test="Chisq")
+AIC(m2,m5)
 ```
 
+To check for interactions the step function was used again, but this time using the BIC criterion,  in order to be more restrictive. The BIC criterion removed all of them, hence the model to work with is the one after the additive step.
 ```{r}
-anova(m4,m6,test="Chisq")
-AIC(m4,m6)
+m6 = step(maux , scope = . ~ .^2, k = log(nrow(df)))
+AIC(m2, m6)
 ```
 
-To check for interactions, we use the step function again, but now with BIC criterion, to be more restrictive.
-```{r}
-m7 = step(maux , scope = . ~ .^2, k = log(nrow(df)))
-AIC(m4, m7)
-```
-
+--------------------------------------------------------------------------------------------------------
 ---
+REMOVE
 # BIC with n.cdi and f.cdi -> f.cdi much better
 
 In the numerical there is interaction with company size, in the categorical not!
@@ -526,9 +553,10 @@ AIC(mn_bic, mf_bic)
 ```{r}
 ```
 ---
-
+REMOVE
 As we can obviously see, the results of the additive terms with BIC are a set of the ones with AIC, an one interaction is preserved. The merged model is as follows:
 ```{r}
+#REMOVE
 m8 = glm(target ~ I(city_development_index^(-0.5))*company_size + relevent_experience + 
     education_level + experience + company_type + 
     last_new_job + training_hours, family = "binomial", data = df)
@@ -537,11 +565,12 @@ anova(m4,m8,test='Chisq')
 anova(m7,m8,test='Chisq')
 AIC(m4,m7,m8)
 ```
-
+REMOVE
 As we only got one relevant interaction with BIC criterion, and the two interaction terms are between the set of variables that BIC proposes as additive as well, it was decided to further explore if the interactions between the other BIC relevant improved the model.
 
 As it can be seen, adding the interaction of company_size * education_level results in a significant improvement of the model. Adding however education_level*city_development results in a slightly different model with a very similar AIC value. However, adding this interaction to model 9, results in a statistically different and better model.
 ```{r}
+#REMOVE
 m9 = glm(target ~ (I(city_development_index^(-0.5)) + education_level)*company_size + relevent_experience + 
     experience + company_type + last_new_job + training_hours, family = "binomial", data = df)
 
