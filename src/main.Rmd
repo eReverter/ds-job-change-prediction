@@ -610,7 +610,7 @@ influencePlot(mb)
 
 ### Reevaluate the model
 
-The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated with this new dataset. 
+The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated without those observations. 
 
 ```{r}
 df = df[which(cook<cook_cut),]
@@ -652,8 +652,14 @@ Area under the ROC Curve:
 ```{r}
 auc(daux$target, prob)
 ```
+Confusion matrix on working set
+```{r}
+prob = predict(mbest, newdata = daux, type = "response")
+prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(prob), reference = daux$target)
+```
 
-Confusion matrix on the test set. First we need to apply the same transformations to the test set (we could do this beforehand):
+Confusion matrix on the test set. First the same transformations that have been done during the modelling steps have to be applied to the test set 
 ```{r}
 test = select(test, -c("city", "enrollee_id", "imputed"))
 
@@ -673,11 +679,7 @@ levels(test$f.city_development_index) <- c('[0.448,0.691)', '[0.691,0.878)', '[0
 test = select(test, -c("city_development_index"))
 ```
 
-```{r}
-prob = predict(mbest, newdata = daux, type = "response")
-prob = ifelse(prob<0.5,0,1)
-confusionMatrix(data = as.factor(prob), reference = daux$target)
-```
+
 
 ```{r}
 prob = predict(mbest, newdata = test, type = "response")
