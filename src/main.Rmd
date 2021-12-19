@@ -92,46 +92,7 @@ df %>%
 table(df$last_new_job)
 ```
 
-REMOVE
-Collapse categories for factor Experience:
-- Entry-level: 0-2
-- Junior-level: 3-4
-- Mid-level: 5-6
-- Senior-level: 7-10
-- Chief: 11 - INF
 
-Collapse categories for factor Company Size:
-- Small
--Medium
--Large
-
-```{r, eval=F}
-#REMOVE
-entry_level = c('<1','1','2')
-junior_level = c('3','4')
-mid_level = c('5','6')
-senior_level = c('7','8','9','10')
-chief_level = c('11','12','13','14','15','16','17','18','19','20','>20')
-
-small_company = c('<10', '10/49')
-medium_company = c('50-99','100-500','500-999')
-large_company = c('1000-4999','5000-9999','10000+')
-
-df = df %>% 
-  mutate(across(where(is.factor), ~ as.character(.))) %>%
-  mutate(experience = case_when(experience %in% entry_level ~ "Entry Level",
-                                experience %in% junior_level ~ "Junior Level",
-                                experience %in% mid_level ~ "Mid Level",
-                                experience %in% senior_level ~ "Senior Level",
-                                experience %in% chief_level ~ "Chief Level",
-                                TRUE ~ experience)) %>%
-  mutate(company_size = case_when(company_size %in% small_company ~ 'Small Company',
-                                  company_size %in% medium_company ~ 'Medium Company',
-                                  company_size %in% large_company ~ 'Large Company',
-                                  TRUE ~ company_size)) %>%
-  mutate(across(where(is.character), ~ as.factor(.)))
-```
- 
 ### Missing Values
 
 As it can be seen, the dataset contains a lot of missing values, in some cases even exceeding the 30% of values from an attribute. These high values conditioned the imputation methods, which was first done using logical methods. Moreover, there are observations with more than 50% of the variables as null, which have been decided to be eliminated.
@@ -335,7 +296,11 @@ df %>%
 Univariate outliers can not be seen in the dataset for the two numerical variables present. One could think that training_hours contains some outliers, as they are above the extreme threshold. However, they are not too extreme and all of them have a very plausible value, hence imputation would not be a good practice in this case.
 
 ```{r, eval=F}
+
+# BOXPLOT CITY DEVELOPMENT
+
 extreme_out = quantile(df$training_hours)[[4]]+3*IQR(df$training_hours)
+
 
 ggplot(data = df, aes(x="", y=training_hours)) +
   geom_boxplot(width=0.5) +
@@ -400,7 +365,6 @@ After computing the null model, it was assessed how to treat the attribute exper
 
 Regarding being numerical, polynomial transformations were applied to it. It was seen that the p-value for a third degree polynomial suggests that this transformation is not needed (this conclusion can only be drawn because the variables constructed by Poly function are orthogonal), hence only a second order polynomial was kept. Using deviance tests, the comparison with the normal variable and the transformed one yield significantly different models, and with a better performance for the transformed one.
 
-Q: Should we use Anova() in any case? Due to the imbalance on the target (4:1).
 ```{r}
 mnexp = glm(target ~ n.experience, data=df, family=binomial)
 summary(mnexp)
@@ -437,9 +401,10 @@ groups = 5
 df$collapsed_exp2 = as.ordered(cut2(df$n.experience, g=groups, m=nrow(df)/groups))
 table(df$collapsed_exp)
 table(df$collapsed_exp2)
+
 ```
 
-Comparing both collapsed models, the logically collapsed results in the best one.
+Comparing both collapsed models, the collapsed by quantiles results in the best one.
 ```{r} 
 mcexp = glm(target ~ experience, data=df, family=binomial)
 summary(mcexp)
@@ -448,9 +413,11 @@ mcexpcol = glm(target ~ collapsed_exp, data=df, family=binomial)
 mcexpcol2 = glm(target ~ collapsed_exp2, data=df, family=binomial)
 
 
+# LIDIA
 anova(mcexpcol2,mcexp,test='Chisq')
-anova(mcexpcol, mcexpcol2, test='Chisq')
+anova(mcexpcol, mcexpcol2, test='Chisq') 
 anova(mcexpcol,mcexp,test='Chisq')
+
 ```
 
 After getting the best numerical and categorical transformations for the variable, the models created with them were compared. As they are not nested models, the deviance test anova() can not be applied, and it was decided to use AIC instead. It can be clearly seen that the numerical treatment of the variable outperforms the categorical, hence is the one that will be used in the following models. 
@@ -463,22 +430,21 @@ The same analysis can be done for the city development index (which will not be 
 mncdi = glm(target ~ city_development_index, data=df, family=binomial); summary(mncdi) # Numerical
 mfcdi = glm(target ~ f.city_development_index, data=df, family=binomial); summary(mfcdi) # Categorical (collapsed above)
 
-anova(mncdi, mfcdi, test='Chisq')
 AIC(mncdi, mfcdi)
 
 # For the improved cdi^-0.5 - known from the marginal model plots
 marginalModelPlots(mncdi)
 mncdi_tr = glm(target ~ I(city_development_index^-0.5), data=df, family=binomial)
 marginalModelPlots(mncdi_tr)
-anova(mncdi_tr, mfcdi, test='Chisq')
-AIC(mncdi_tr, mfcdi)
+
+AIC(mncdi,mncdi_tr, mfcdi)
 
 # Discretizing the transformed index
+
 groups = 5
 
 df$f.city_development_index_tr = as.ordered(cut2(df$city_development_index^-0.5, g=groups, m=nrow(df)/groups))
 mfcdi_tr = glm(target ~ f.city_development_index_tr, data=df, family=binomial)
-anova(mfcdi, mfcdi_tr, test='Chisq')
 AIC(mfcdi, mfcdi_tr)
 ```
 
@@ -503,7 +469,7 @@ anova(m2,m3,test="Chisq")
 # Interaction effects
 anova(m3,m4,test="Chisq")
 
-AIC(m0, m1, m2, m3, m4) # m2 per anova, cert
+AIC(m0, m1, m2, m3, m4) 
 ```
 
 Assessing it with marginal model plots, no transformations are suggested, as it yields a perfect fit.
@@ -542,7 +508,6 @@ aux = df %>%
 maux = glm(target ~ poly(n.experience,2) + ., data=aux, family=binomial)
 maux = step(maux)
 vif(maux)
-anova(maic,maux,test="Chisq")
 AIC(maic, maux)
 ```
 ---
@@ -554,15 +519,16 @@ AIC(m2, maic, mbic)
 ```
 
 ### Model Diagnostics
-
+LINES, ANNEX
 ```{r}
-avPlots(mbic)
-marginalModelPlots(mbic)
+avPlots(maic)
+marginalModelPlots(maic)
+residualPlots(maic)
 ```
 
 Studentized Residuals:
 ```{r}
-mb = mbic
+mb = maic
 n = dim(df)[1]
 p = mb$rank
 res_mb = rstudent(mb)
@@ -595,7 +561,7 @@ prop.table(table(aux$target)); prop.table(table(df$target))
 Hat Values:
 ```{r}
 hat = hatvalues(mb)
-hat_cut = 3*p/n #if we assume the dataset is small, then 2p/n - Utilitzem qt()?
+hat_cut = 4*p/n #if we assume the dataset is small, then 2p/n - Utilitzem qt()?
 
 Boxplot(hat)
 abline(h=hat_cut,col=2)
@@ -603,12 +569,15 @@ abline(h=hat_cut,col=2)
 sum(hat>hat_cut)
 
 aux = df[which(hat>hat_cut),]
+summary(aux)
 ```
 
 Cook's distance:
 ```{r}
 cook = cooks.distance(mb)
 cook_cut = 4/(n-p) # Utilitzem qt()?
+cook_cut = 0.003
+
 
 Boxplot(cook)
 abline(h=cook_cut)
@@ -616,6 +585,7 @@ abline(h=cook_cut)
 nrow(df[which(cook>cook_cut),])
 
 aux = df[which(cook>cook_cut),]
+summary(aux)
 ```
 
 Visualize it:
@@ -627,8 +597,27 @@ influencePlot(mb)
 
 ```{r}
 df = df[which(cook<cook_cut),]
-mre = glm(target ~ poly(n.experience,2) + ., data=df, family=binomial)
-mbest = step(mre)
+
+mbest = glm(formula = target ~ poly(n.experience, 2) + relevent_experience + 
+    enrolled_university + education_level + company_size + last_new_job + 
+    training_hours + f.city_development_index, family = binomial, 
+    data = df)
+
+influencePlot(mbest)
+cook = cooks.distance(mbest)
+Boxplot(cook)
+
+daux = df[-c(1290,2757,55),]
+
+mbest = glm(formula = target ~ poly(n.experience, 2) + relevent_experience + 
+    enrolled_university + education_level + company_size + last_new_job + 
+    training_hours + f.city_development_index, family = binomial, 
+    data = daux)
+
+influencePlot(mbest)
+cook = cooks.distance(mbest)
+Boxplot(cook)
+
 ```
 
 ### Model Performance Evaluation
@@ -637,14 +626,14 @@ ROC Curve:
 ```{r}
 library(pROC)
 prob=predict(mbest, type=c("response"))
-df$prob=prob
-g = roc(target ~ prob, data = df)
+daux$prob=prob
+g = roc(target ~ prob, data = daux)
 plot(g)
 ```
 
 Area under the ROC Curve:
 ```{r}
-auc(df$target, prob)
+auc(daux$target, prob)
 ```
 
 Confusion matrix on the test set. First we need to apply the same transformations to the test set (we could do this beforehand):
@@ -663,17 +652,19 @@ test = test %>%
 test$f.city_development_index = as.ordered(cut2(test$city_development_index, cuts = c(0.691, 0.878, 0.920, 0.921)))
 table(test$f.city_development_index)
 table(df$f.city_development_index)
-levels(test$f.city_development_index)[test$f.city_development_index=="[0.479,0.691)"] = "[0.448,0.691)"
+levels(test$f.city_development_index) <- c('[0.448,0.691)', '[0.691,0.878)', '[0.878,0.920)','0.920', '[0.921,0.949]')
 test = select(test, -c("city_development_index"))
 ```
 
 ```{r}
-prob = predict(mbest, newdata = test, type = "response")
-test$prob = prob
-g = roc(target ~ prob, data = test)
-plot(g)
-auc(test$target, prob)
+prob = predict(mbest, newdata = daux, type = "response")
+prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(prob), reference = daux$target)
+```
 
-confusionMatrix(data = as.numeric(predicted>0.5), reference = test$target)
+```{r}
+prob = predict(mbest, newdata = test, type = "response")
+test$prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(test$prob), reference = test$target)
 ```
 
