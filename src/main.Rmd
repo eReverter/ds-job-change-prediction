@@ -135,7 +135,7 @@ df = df %>%
   select(., -c("count_na"))
 ```
 
-The rules used for logically imputation where as follow:
+The rules used for logically imputation where as follow, always assuming that everyone in the dataset is currently working, as the target is looking or not for a job change:
 
 - If the education level is null but they are enrolled in university, the education is set to high school.
 - If major discipline is not null, the education level should be at least graduate.
@@ -345,7 +345,7 @@ cat$category
 cat$quanti
 ```
 
-Before starting with the modelling, the data should be split into working and test datasets, so that the created model can be compared and assessed with data that it has not seen, hence limiting overfitting.
+Before starting with the modelling, the data should be split into working and test datasets, so that the created model can be compared and assessed with data that it has not seen, hence limiting overfitting. The chosen splitting size was 75-25.
 ```{r}
 library(caret)
 set.seed(020198)
@@ -361,7 +361,7 @@ m0 = glm(target ~ 1, data=df, family=binomial)
 summary(m0)
 ```
 
-After computing the null model, it was assessed how to treat the attribute experience, as a factor or as a numerical variable. 
+After computing the null model, it was assessed how to treat the attribute experience: as a factor or as a numerical variable. 
 
 Regarding being numerical, polynomial transformations were applied to it. It was seen that the p-value for a third degree polynomial suggests that this transformation is not needed (this conclusion can only be drawn because the variables constructed by Poly function are orthogonal), hence only a second order polynomial was kept. Using deviance tests, the comparison with the normal variable and the transformed one yield significantly different models, and with a better performance for the transformed one.
 
@@ -375,7 +375,7 @@ summary(mnexppoly2)
 anova(mnexp,mnexppoly2,test='Chisq')
 ```
 
-Regarding treating it as a factor, as it has more than 20 categories, some collapsations have been found to improve the model results:
+Regarding treating it as a factor, as it has more than 20 categories, some collapses have been found to improve the model results:
 -Collapsing by quantiles
 -Collapsing the model logically in Entry Level, Junior Level, Mid Level, Senior Level and Chief Level, using some well defined year ranges for the Data Science field.
 ```{r}
@@ -448,16 +448,14 @@ mfcdi_tr = glm(target ~ f.city_development_index_tr, data=df, family=binomial)
 AIC(mfcdi, mfcdi_tr)
 ```
 
-After having chosen the best variables to work with, the focus was on the two numerical variables, whose models were compared with and without interactions. As it can be seen with the deviance test, adding training hours to the model, either as an interaction or addition, does not yield a statistically different model, hence the second order transformation is kept.
+After having chosen the best variables to work with, the focus was firstly on the two numerical variables, whose models were compared with and without interactions. As it can be seen with the deviance test, adding training hours to the model, either as an interaction or just addition, does not yield a statistically different model, hence only the second order transformation to experience is kept.
 ```{r}
 m1 = glm(target ~ training_hours, data=df, family=binomial)
 m2 = glm(target ~ poly(n.experience,2), data=df, family=binomial)
 
 m3 = glm(target ~ training_hours+poly(n.experience,2), data=df, family=binomial)
 m4 = glm(target ~ training_hours*poly(n.experience,2), data=df, family=binomial)
-```
 
-```{r}
 # Gross effects
 anova(m0,m1,test="Chisq")
 anova(m0,m2,test="Chisq")
@@ -512,21 +510,38 @@ AIC(maic, maux)
 ```
 ---
 
-To check for interactions the step function was used again, but this time using the BIC criterion,  in order to be more restrictive. The BIC criterion removed all of them, hence the model to work with is the one after the additive step.
+To check for interactions the step function was used again, but this time using the BIC criterion,  in order to be more restrictive. The BIC criterion removed all of the possible interactions, hence model resulting from the AIC step is the resulting one.
 ```{r}
 mbic = step(m5 , scope = . ~ .^2, k = log(nrow(df)))
 AIC(m2, maic, mbic)
 ```
 
+## MODEL INTERPRETATION
+
+The model formula is as follows:
+
+logit($\pi$~ijklqr~)$= \eta + \beta$~1~$experience$+$\beta$~2~$experience^2+\delta training + \alpha$~i~+$\nu$~j~+$\kappa$~k~ +$\xi$~l~+$\psi$~q~+$\lambda$~r~ 
+
+The reference level is someone with Relevant Experience, doing a full time course, graduate level, majoring in arts, working in a company of unknown size that has not change a job in the past 4 years, and living in a city of poor development.
+
+Briefly, it can be seen that:
+Regarding numerical attributes, the odds of a job change increase with the experience but decrease the more training hours someone has.
+Regarding categorical, having no relevant experience increases the odds, people with a collage degree are the ones more prone to change job, whereas the ones with phd are the less prone, the less developed a city is the more likely are workers to want to change jobs. Regarding changing jobs, the less likely are people that have just started a new job or that have been working in the same job for a long time, and if inspecting company size, people who work at big corporations are the ones less likely to change jobs, whereas people who work at small companies are the ones more likely.     
+```{r}
+summary(maic)
+```
+
+
 ### Model Diagnostics
-LINES, ANNEX
+
+The added variable plots, which can bee seen in the Annex, do not show any alarming behavior and the same can be said for the MarginalModelPlots. Regarding the residualPlots, there is no much to be said, as overall the behavior is acceptable.
 ```{r}
 avPlots(maic)
 marginalModelPlots(maic)
 residualPlots(maic)
 ```
 
-Studentized Residuals:
+Studentized Residuals: Some outliers have been found in them. It can be seen that they are all people who want to change jobs, and contrary to the whole dataset, the vast majority of them are only high school graduates (hence no major).
 ```{r}
 mb = maic
 n = dim(df)[1]
@@ -558,10 +573,10 @@ prop.table(table(aux$f.city_development_index)); prop.table(table(df$f.city_deve
 prop.table(table(aux$target)); prop.table(table(df$target))
 ```
 
-Hat Values:
+Hat Values: The cut off for this assessment has been 4 times the mean,as the dataset can be considered big enough. Regarding the description of the observations that fall under the criterion, there is a large proportion of people with no experience and PhD in comparison with the full dataset. As the had values indicate the leverage, these outliers have not been removed, as the overall effect will be assessed with Cook's distance.
 ```{r}
 hat = hatvalues(mb)
-hat_cut = 4*p/n #if we assume the dataset is small, then 2p/n - Utilitzem qt()?
+hat_cut = 4*p/n 
 
 Boxplot(hat)
 abline(h=hat_cut,col=2)
@@ -572,10 +587,10 @@ aux = df[which(hat>hat_cut),]
 summary(aux)
 ```
 
-Cook's distance:
+Cook's distance: For the Cook's distance criterion, a threshold had to be defined to match the need of our model. As before, it can be seen that the proportions for people with no experience and for the ones with a PhD increase.
 ```{r}
 cook = cooks.distance(mb)
-cook_cut = 4/(n-p) # Utilitzem qt()?
+cook_cut = 4/(n-p) 
 cook_cut = 0.003
 
 
@@ -594,6 +609,8 @@ influencePlot(mb)
 ```
 
 ### Reevaluate the model
+
+The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated with this new dataset. 
 
 ```{r}
 df = df[which(cook<cook_cut),]
