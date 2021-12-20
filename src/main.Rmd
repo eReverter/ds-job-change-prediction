@@ -17,7 +17,6 @@ Assumptions:
 - Sample from incomplete dataset.
 - Everyone in this dataset is currently working.
 
-
 ### Required libraries
 
 ```{r, eval=F}
@@ -52,7 +51,6 @@ setwd("..")
 data_path = file.path(getwd(), "data")
 plot_path = file.path(getwd(), "plots")
 ```
-
 
 # Data Exploration
 
@@ -92,10 +90,9 @@ df %>%
 table(df$last_new_job)
 ```
 
-
 ### Missing Values
 
-As it can be seen, the dataset contains a lot of missing values, in some cases even exceeding the 30% of values from an attribute. These high values conditioned the imputation methods, which was first done using logical methods. Moreover, there are observations with more than 50% of the variables as null, which have been decided to be eliminated.
+As it can be seen, the dataset contains a lot of missing values, in some cases even exceeding the 30% of values from an attribute. These high values conditioned the imputation methods, which was first done using logical methods. Moreover, there are observations with more than 50% of the variables as null, which have been decided to be eliminated:
 ```{r}
 count_na = function(x) {sum(is.na(x))}
 df = df %>%
@@ -240,6 +237,7 @@ df = df %>%
   mutate(last_new_job = str_remove(last_new_job, "last_new_job_")) %>%
   mutate(across(where(is.character), ~ as.factor(.)))
 ```
+
 With the complete dataset, some new attributes have been created: a new numerical variable has been created from the factor experience and a new factor has been created from the variable of city development. In future steps, it will be decided which one is the most suitable for the modelling process. It must be noted that since company size had a lot of NA, it has not been converted into numerical.
 
 Convert experience into a numerical variable:
@@ -337,6 +335,7 @@ prop.table(table(outliers$last_new_job))
 
 Before starting with the model, it is interesting to describe the response variable. It can be seen that it is significantly associated with all the numerical and categorical variables, except for training_hours, which sits really close to the threshold. It is also worth noting that the variables which have been kept in purpose both in numerical and categorical form are the ones that have a more significant association, meaning that the future assessment of how to treat them will be of particular interest. Overall, what can be said is that in general people who want to change jobs tend to be from less developed cities, have less experience and lower education.
 
+### CHANGE 
 ```{r}
 cat = FactoMineR::catdes(df[,-c(13:15)], 12)
 cat$test.chi2
@@ -356,7 +355,7 @@ test = df[-trainIndex,]
 
 Inspect the null model:
 ```{r}
-df = select(train, -c("city", "enrollee_id", "imputed"))
+df = select(train, -c("city", "enrollee_id"))
 m0 = glm(target ~ 1, data=df, family=binomial)
 summary(m0)
 ```
@@ -415,7 +414,7 @@ mcexpcol2 = glm(target ~ collapsed_exp2, data=df, family=binomial)
 
 # LIDIA
 anova(mcexpcol2,mcexp,test='Chisq')
-anova(mcexpcol, mcexpcol2, test='Chisq') 
+anova(mcexpcol, mcexpcol2, test='Chisq')
 anova(mcexpcol,mcexp,test='Chisq')
 
 ```
@@ -478,42 +477,74 @@ marginalModelPlots(m2)
 After that, the additive effect of variables is explored by using a step function with AIC, to be more permissive. It results in suggesting the addition of 7 of the variables to the model, which is significantly different and much better than the previous best one. Also, multicollinearity was discarded by doing a vif test.
 ```{r}
 df = select(df, -c("experience", "collapsed_exp", "collapsed_exp2", "city_development_index", "f.city_development_index_tr"))
-m5 = glm(target ~ poly(n.experience,2) + ., data=df, family=binomial)
+m5 = glm(target ~ poly(n.experience,2) + . - imputed, data=df, family=binomial)
 maic = step(m5)
 vif(maic)
 anova(m2,maic,test="Chisq")
 AIC(m2,maic)
+summary(maic)
 ```
 
-Mirem aquí si serveix d'alguna cosa col·lapsar company size?
----
-
-# Additive step with company size uncollapsed and collapsed
+Analyze collapsed categories looking at the pvalues of the AIC step:
 ```{r}
-# According to OECD:
-small_company = c('<10', '10/49')
-medium_company = c('50-99','100-500')
-large_company = c('500-999', '1000-4999','5000-9999','10000+')
-
 aux = df %>% 
   mutate(across(where(is.factor), ~ as.character(.))) %>%
-  mutate(company_size = case_when(company_size %in% small_company ~ 'Small Company',
-                                  company_size %in% medium_company ~ 'Medium Company',
-                                  company_size %in% large_company ~ 'Large Company',
+  mutate(company_size = case_when(company_size != "Unknown" ~ "Known",
                                   TRUE ~ company_size)) %>%
   mutate(across(where(is.character), ~ as.factor(.)))
 
-maux = glm(target ~ poly(n.experience,2) + ., data=aux, family=binomial)
-maux = step(maux)
-vif(maux)
-AIC(maic, maux)
+maux = glm(formula = target ~ poly(n.experience, 2) + relevent_experience + 
+    enrolled_university + education_level + company_size + last_new_job + 
+    training_hours + f.city_development_index, family = binomial, 
+    data = aux)
+
+aux2 = aux %>% 
+  mutate(across(where(is.factor), ~ as.character(.))) %>%
+  mutate(education_level = case_when(education_level %in% c("Masters", "Phd") ~ "MastersPhd",
+                                  TRUE ~ education_level)) %>%
+  mutate(across(where(is.character), ~ as.factor(.)))
+
+maux2 = glm(formula = target ~ poly(n.experience, 2) + relevent_experience + 
+    enrolled_university + education_level + company_size + last_new_job + 
+    training_hours + f.city_development_index, family = binomial, 
+    data = aux2)
+
+aux3 = aux2 %>% 
+  mutate(across(where(is.factor), ~ as.character(.))) %>%
+  mutate(enrolled_university = case_when(enrolled_university != "no_enrollment" ~ "Enrolled",
+                                  TRUE ~ enrolled_university)) %>%
+  mutate(across(where(is.character), ~ as.factor(.)))
+
+maux3 = glm(formula = target ~ poly(n.experience, 2) + relevent_experience + 
+    enrolled_university + education_level + company_size + last_new_job + 
+    training_hours + f.city_development_index, family = binomial, 
+    data = aux3)
+
+aux4 = aux3 %>% 
+  mutate(across(where(is.factor), ~ as.character(.))) %>%
+  mutate(last_new_job = case_when(last_new_job == "1" ~ "1",
+                                  last_new_job == "never" ~ "never",
+                                  TRUE ~ "[2-4]")) %>%
+  mutate(across(where(is.character), ~ as.factor(.)))
+
+maux4 = glm(formula = target ~ poly(n.experience, 2) + relevent_experience + 
+    enrolled_university + education_level + company_size + last_new_job + 
+    training_hours + f.city_development_index, family = binomial, 
+    data = aux4)
 ```
----
 
 To check for interactions the step function was used again, but this time using the BIC criterion,  in order to be more restrictive. The BIC criterion removed all of the possible interactions, hence model resulting from the AIC step is the resulting one.
 ```{r}
-mbic = step(m5 , scope = . ~ .^2, k = log(nrow(df)))
-AIC(m2, maic, mbic)
+mbic = step(maux, scope = . ~ .^2, k = log(nrow(df)))
+mbic2 = step(maux2, scope = . ~ .^2, k = log(nrow(df)))
+mbic3 = step(maux3, scope = . ~ .^2, k = log(nrow(df)))
+mbic4 = step(maux4, scope = . ~ .^2, k = log(nrow(df)))
+
+AIC(maic, maux, maux2, maux3, maux4, mbic, mbic2, mbic3, mbic4) # Go with mbic2
+summary(mbic2)
+
+df2 = df
+df = aux2
 ```
 
 ## MODEL INTERPRETATION
@@ -535,21 +566,24 @@ summary(maic)
 ### Model Diagnostics
 
 The added variable plots, which can bee seen in the Annex, do not show any alarming behavior and the same can be said for the MarginalModelPlots. Regarding the residualPlots, there is no much to be said, as overall the behavior is acceptable.
+
 ```{r}
-avPlots(maic)
-marginalModelPlots(maic)
-residualPlots(maic)
+avPlots(mbic2)
+marginalModelPlots(mbic2)
+residualPlots(mbic2)
+allEffects(mbic2)
+plot(allEffects(mbic2))
 ```
 
 Studentized Residuals: Some outliers have been found in them. It can be seen that they are all people who want to change jobs, and contrary to the whole dataset, the vast majority of them are only high school graduates (hence no major).
 ```{r}
-mb = maic
+mb = mbic2
 n = dim(df)[1]
 p = mb$rank
 res_mb = rstudent(mb)
 cut_off = qt(0.995,n-p-1)
 
-Boxplot(res_mb)
+ls = Boxplot(res_mb)
 abline(h=cut_off,col=2)
 abline(h=-cut_off,col=2)
 
@@ -590,14 +624,15 @@ summary(aux)
 Cook's distance: For the Cook's distance criterion, a threshold had to be defined to match the need of our model. As before, it can be seen that the proportions for people with no experience and for the ones with a PhD increase.
 ```{r}
 cook = cooks.distance(mb)
-cook_cut = 4/(n-p) 
-cook_cut = 0.003
+cook_cut = 4/(n-p) # Option 1
+cook_cut = 0.003 # Option 2
+cook_cut2 = quantile(cook, 0.99)[[1]] # Option 3
 
-
-Boxplot(cook)
+lc = Boxplot(cook, id=list(n=27))
 abline(h=cook_cut)
 
 nrow(df[which(cook>cook_cut),])
+nrow(df[which(cook>cook_cut2),])
 
 aux = df[which(cook>cook_cut),]
 summary(aux)
@@ -613,45 +648,49 @@ influencePlot(mb)
 The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated without those observations. 
 
 ```{r}
+daux = df[which(cook<cook_cut2),] 
 df = df[which(cook<cook_cut),]
 
-mbest = glm(formula = target ~ poly(n.experience, 2) + relevent_experience + 
-    enrolled_university + education_level + company_size + last_new_job + 
-    training_hours + f.city_development_index, family = binomial, 
-    data = df)
+# With manual cooks
+mbest = glm(formula = target ~ poly(n.experience, 2) + education_level + 
+    company_size + f.city_development_index + company_size:f.city_development_index, 
+    family = binomial, data = df)
 
-influencePlot(mbest)
-cook = cooks.distance(mbest)
-Boxplot(cook)
+# With percentile cooks 
+mbaux = glm(formula = target ~ poly(n.experience, 2) + education_level + 
+    company_size + f.city_development_index + company_size:f.city_development_index, 
+    family = binomial, data = daux)
 
-daux = df[-c(1290,2757,55),]
+# Option 1 to evaluate
+AIC(mb, mbest, mbaux)
 
-mbest = glm(formula = target ~ poly(n.experience, 2) + relevent_experience + 
-    enrolled_university + education_level + company_size + last_new_job + 
-    training_hours + f.city_development_index, family = binomial, 
-    data = daux)
-
-influencePlot(mbest)
-cook = cooks.distance(mbest)
-Boxplot(cook)
-
+# Option 2 to evaluate
+mbest$deviance / (nrow(df) - mbest$rank)
+mbaux$deviance / (nrow(daux) - mbaux$rank)
 ```
 
 ### Model Performance Evaluation
 
-ROC Curve:
+ROC Curve Plot (WIP):
 ```{r}
-library(pROC)
-prob=predict(mbest, type=c("response"))
-daux$prob=prob
-g = roc(target ~ prob, data = daux)
-plot(g)
+# library(pROC)
+# prob=predict(mbest, type=c("response"))
+# df$prob=prob
+# g = roc(target ~ prob, data = df)
+# plot(g)
 ```
 
 Area under the ROC Curve:
 ```{r}
+# mbest
+prob = predict(mbest, type=c("response"))
+auc(df$target, prob)
+
+#mbaux
+prob = predict(mbaux, type=c("response"))
 auc(daux$target, prob)
 ```
+
 Confusion matrix on working set
 ```{r}
 prob = predict(mbest, newdata = daux, type = "response")
@@ -661,6 +700,7 @@ confusionMatrix(data = as.factor(prob), reference = daux$target)
 
 Confusion matrix on the test set. First the same transformations that have been done during the modelling steps have to be applied to the test set 
 ```{r}
+# aux = test
 test = select(test, -c("city", "enrollee_id", "imputed"))
 
 test = test %>%
@@ -669,21 +709,49 @@ test = test %>%
                                 experience == ">20" ~ "25",
                                 TRUE ~ experience)) %>%
   mutate(n.experience = as.integer(n.experience)) %>%
+  mutate(company_size = case_when(company_size != "Unknown" ~ "Known",
+                                  TRUE ~ company_size)) %>%
+  mutate(education_level = case_when(education_level %in% c("Masters", "Phd") ~ "MastersPhd",
+                                  TRUE ~ education_level)) %>%
   mutate(across(where(is.character), ~ as.factor(.))) %>%
   select(., -c("experience"))
 
+table(df$f.city_development_index)
 test$f.city_development_index = as.ordered(cut2(test$city_development_index, cuts = c(0.691, 0.878, 0.920, 0.921)))
 table(test$f.city_development_index)
-table(df$f.city_development_index)
-levels(test$f.city_development_index) <- c('[0.448,0.691)', '[0.691,0.878)', '[0.878,0.920)','0.920', '[0.921,0.949]')
-test = select(test, -c("city_development_index"))
+levels(test$f.city_development_index) = c('[0.448,0.691)', '[0.691,0.878)', '[0.878,0.920)','0.920', '[0.921,0.949]')
 ```
 
+EXTRA - Option 3 to evaluate which model is better
 
+Train data
 
+MBEST (MANUAL COOKS)
+```{r}
+prob = predict(mbest, newdata = df, type = "response")
+prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(prob), reference = df$target)
+```
+
+MBAUX (1% COOKS)
+```{r}
+prob = predict(mbaux, newdata = daux, type = "response")
+prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(prob), reference = daux$target)
+```
+
+Test data (Aixo no esta ben fet pero bueno era per curiositat)
+
+MBEST (MANUAL COOKS)
 ```{r}
 prob = predict(mbest, newdata = test, type = "response")
 test$prob = ifelse(prob<0.5,0,1)
 confusionMatrix(data = as.factor(test$prob), reference = test$target)
 ```
 
+MBAUX(1% COOKS)
+```{r}
+prob = predict(mbaux, newdata = test, type = "response")
+test$prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(test$prob), reference = test$target)
+```
