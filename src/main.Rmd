@@ -410,12 +410,6 @@ summary(mcexp)
 mcexpcol = glm(target ~ collapsed_exp, data=df, family=binomial)
 mcexpcol2 = glm(target ~ collapsed_exp2, data=df, family=binomial)
 
-
-# LIDIA
-anova(mcexpcol2,mcexp,test='Chisq')
-anova(mcexpcol, mcexpcol2, test='Chisq')
-anova(mcexpcol,mcexp,test='Chisq')
-
 ```
 
 After getting the best numerical and categorical transformations for the variable, the models created with them were compared. As they are not nested models, the deviance test anova() can not be applied, and it was decided to use AIC instead. It can be clearly seen that the numerical treatment of the variable outperforms the categorical, hence is the one that will be used in the following models. 
@@ -518,22 +512,30 @@ AIC(maic, maux, maux2, mbic, mbic2) # Go with mbic2
 summary(mbic2)
 
 df = aux2
+
 mb = mbic2
 ```
 
 ## MODEL INTERPRETATION
 
+
 The model formula is as follows:
 
-logit($\pi$~ijklqr~)$= \eta + \beta$~1~$experience$+$\beta$~2~$experience^2+\delta training + \alpha$~i~+$\nu$~j~+$\kappa$~k~ +$\xi$~l~+$\psi$~q~+$\lambda$~r~ 
+logit($\pi$~ijk~)$= \eta + \beta$~1~$experience$+$\beta$~2~$experience^2+\alpha$~i~+$\nu$~j~+$\kappa$~k~ +$\nu\kappa$~jk~
 
-The reference level is someone with Relevant Experience, doing a full time course, graduate level, majoring in arts, working in a company of unknown size that has not change a job in the past 4 years, and living in a city of poor development.
+To interpret it, it has to be stated that the reference level is Graduate, Known company Size and from the quantile of cities with poorest development. 
 
-Briefly, it can be seen that:
-Regarding numerical attributes, the odds of a job change increase with the experience but decrease the more training hours someone has.
-Regarding categorical, having no relevant experience increases the odds, people with a collage degree are the ones more prone to change job, whereas the ones with phd are the less prone, the less developed a city is the more likely are workers to want to change jobs. Regarding changing jobs, the less likely are people that have just started a new job or that have been working in the same job for a long time, and if inspecting company size, people who work at big corporations are the ones less likely to change jobs, whereas people who work at small companies are the ones more likely.     
+Some of the coefficients can be interpreted as follows:
+- When considering experience, all else equal, the log odds decrease during the first 20 years, and then start increasing.
+- Considering education level, all else equal, having low levels of education (high/primary school) decrease considerably the log odds, compared to the reference level(graduate), and Masters or PhD decrease it slightly.
+- For city development, it can be said:
+  - Company_size Known: the log odds are reduced by increasing order of city development (-2,-2.38,-2.5,-2.52), all else equal. Hence the odds of changing jobs are higher for people from less developed cities from known company_size
+  - Company_size Unknown: to assess this case, the value of the interaction coefficient must be added respectively. All else equal, the same conclusion as before can be reached, but in this case the decrease in log odds is much more smaller.
+
+A similar argumentation could be done for company size, but it has a lot of categories to compare it with.
 ```{r}
 summary(mb)
+coef(mb)
 ```
 
 
@@ -549,7 +551,7 @@ allEffects(mb)
 plot(allEffects(mb))
 ```
 
-Studentized Residuals: Some outliers have been found in them. It can be seen that they are all people who want to change jobs, and contrary to the whole dataset, the vast majority of them are only high school graduates (hence no major).
+Studentized Residuals: Some outliers have been found in them. It can be seen that they are all people who want to change jobs, and contrary to the whole dataset, the vast majority of them are only high school graduates (hence no major) and all of them had specified the company size.
 ```{r}
 n = dim(df)[1]
 p = mb$rank
@@ -582,7 +584,7 @@ prop.table(table(aux$f.city_development_index)); prop.table(table(df$f.city_deve
 prop.table(table(aux$target)); prop.table(table(df$target))
 ```
 
-Hat Values: The cut off for this assessment has been 4 times the mean,as the dataset can be considered big enough. Regarding the description of the observations that fall under the criterion, there is a large proportion of people with no experience and PhD in comparison with the full dataset. As the had values indicate the leverage, these outliers have not been removed, as the overall effect will be assessed with Cook's distance.
+Hat Values: The cut off for this assessment has been 4 times the mean,as the dataset can be considered big enough. Regarding the description of the observations that fall under the criterion, there is a large proportion of people with no experience, with only primary school education (hence no major) and in this case all of them have not specified the company. As the had values indicate the leverage, these outliers have not been removed as the overall effect will be assessed with Cook's distance, taking into account discrepancy.
 ```{r}
 hat = hatvalues(mb)
 hat_cut = 4*p/n 
@@ -596,9 +598,8 @@ aux = df[which(hat>hat_cut),]
 summary(aux)
 ```
 
-Cook's distance: For the Cook's distance criterion, a threshold had to be defined to match the need of our model. As before, it can be seen that the proportions for people with no experience and for the ones with a PhD increase.
+Cook's distance: For the Cook's distance criterion, a threshold had to be defined to match the need of our model. As before, it can be seen that the proportions for people with no experience and with primary school education. Moreover, all of them want to change jobs. Fortunately, none of the resulting influential values is one of the ones that were imputed in the previous steps.
 
-None of the influencial observations has been imputed.
 ```{r}
 cook = cooks.distance(mb)
 lc = Boxplot(cook, id=list(n=18))
