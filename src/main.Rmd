@@ -13,9 +13,7 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Assumptions:
-- Sample from incomplete dataset.
-- Everyone in this dataset is currently working.
+In this assignment, a binary model has been created to predict whether or not a candidate will work for a company, or in other words, if he or she will change jobs. The process of creating the model started from understanding and cleaning the data, which in this dataset was a challenging but very important task. Then it continued by progressively building the model, first by checking the best way to treat some variables (i.e as factor or numerical), assessing transformations, additions and interactions. After that, the residuals and influential observations were addressed, and the model was reevaluated. Finally, the predictive power of the model was assessed. The steps hereunder document this process in a more detailed way.
 
 ### Required libraries
 
@@ -532,7 +530,10 @@ Some of the coefficients can be interpreted as follows:
   - Company_size Known: the log odds are reduced by increasing order of city development (-2,-2.38,-2.5,-2.52), all else equal. Hence the odds of changing jobs are higher for people from less developed cities from known company_size
   - Company_size Unknown: to assess this case, the value of the interaction coefficient must be added respectively. All else equal, the same conclusion as before can be reached, but in this case the decrease in log odds is much more smaller.
 
-A similar argumentation could be done for company size, but it has a lot of categories to compare it with.
+A similar argumentation could be done for company size.
+
+Hence, people that live in an underdeveloped city and not have not reported working for company are more prone to change jobs, as well as people with a Graduate or Masters/PhD. 
+
 ```{r}
 summary(mb)
 coef(mb)
@@ -551,7 +552,7 @@ allEffects(mb)
 plot(allEffects(mb))
 ```
 
-Studentized Residuals: Some outliers have been found in them. It can be seen that they are all people who want to change jobs, and contrary to the whole dataset, the vast majority of them are only high school graduates (hence no major) and all of them had specified the company size.
+Studentized Residuals: Some outliers have been found in them, but they do not have,in any case, a value greater than 3. It can be seen that they are all people who want to change jobs, and contrary to the whole dataset, the vast majority of them are only high school graduates (hence no major) and all of them had specified the company size. Moreover, performing an outlierTest only one observation is detected, but it will also be detected and removed when assessing the cook's distance.
 ```{r}
 n = dim(df)[1]
 p = mb$rank
@@ -598,7 +599,7 @@ aux = df[which(hat>hat_cut),]
 summary(aux)
 ```
 
-Cook's distance: For the Cook's distance criterion, a threshold had to be defined to match the need of our model. As before, it can be seen that the proportions for people with no experience and with primary school education. Moreover, all of them want to change jobs. Fortunately, none of the resulting influential values is one of the ones that were imputed in the previous steps.
+Cook's distance: For the Cook's distance criterion, a threshold had to be defined to match the need of our model as a group of observations can clearly be seen as outlier far from the main group of observations. As before, it can be seen that the proportions for people with no experience and with primary school education. Moreover, all of them want to change jobs. Fortunately, none of the resulting influential observations is one of the ones that were imputed in the previous steps.
 
 ```{r}
 cook = cooks.distance(mb)
@@ -611,15 +612,14 @@ abline(h=cook_cut, col=2)
 aux = df[which(cook>cook_cut),]
 summary(aux)
 ```
-
-Visualize it:
+The influential data can be clearly seen with the help of the influence plot:
 ```{r}
 influencePlot(mb)
 ```
 
 ### Reevaluate the model
 
-The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated without those observations. 
+The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated without those observations. The two models have been evaluated firstly with AIC model always knowing that it is not a strictly accurate comparisson as the number of observations differs from one model to the other, but as it is only in 7 observations some a general intuition of the behaviour can be obtained. It can be seen that the new reevaluated model seems to be better, and the influencePlot results are more accurate. 
 ```{r}
 # 1680 %in% which(cook<cook_cut)
 daux = df
@@ -629,6 +629,9 @@ mbest = glm(formula = target ~ poly(n.experience, 2) + education_level +
     company_size + f.city_development_index + company_size:f.city_development_index, 
     family = binomial, data = df)
 
+
+influencePlot(mbest)
+
 # Option 1 to evaluate
 AIC(mb, mbest)
 
@@ -636,7 +639,6 @@ AIC(mb, mbest)
 mb$deviance / (3701 - mb$rank)
 mbest$deviance / (nrow(df) - mbest$rank)
 
-influencePlot(mbest)
 ```
 
 ### Model Performance Evaluation
@@ -651,6 +653,7 @@ plot(g)
 ```
 
 Area under the ROC Curve:
+The Area Under the Curve has been assessed for the test set, and a 0.5% improvement can be seen from the reevaluated model, which supports the previous conclusion that the removing the influential observations was beneficial. Regarding the value, 81.3% can be considered a very good model. 
 ```{r}
 # mbest
 prob = predict(mb, type=c("response"))
@@ -661,8 +664,25 @@ prob = predict(mbest, type=c("response"))
 auc(df$target, prob)
 ```
 
+EXTRA - Option 3 to evaluate which model is better
 
-Confusion matrix on the test set. First the same transformations that have been done during the modelling steps have to be applied to the test set 
+
+MBEST (MANUAL COOKS) #Aixo ara és sencer vs treient cooks no?
+```{r}
+prob = predict(mb, newdata = daux, type = "response")
+prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(prob), reference = daux$target)
+```
+
+MBAUX (1% COOKS)
+```{r}
+prob = predict(mbest, newdata = df, type = "response")
+prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(prob), reference = df$target)
+```
+
+
+Lastly, the confusion matrix was assessed on the test set. First of all, the same transformations that have been done during the modelling steps have to be applied to the test set.
 ```{r}
 # aux = test
 test = select(test, -c("city", "enrollee_id", "imputed"))
@@ -686,27 +706,7 @@ table(test$f.city_development_index)
 levels(test$f.city_development_index) = c('[0.448,0.691)', '[0.691,0.878)', '[0.878,0.920)','0.920', '[0.921,0.949]')
 ```
 
-EXTRA - Option 3 to evaluate which model is better
 
-Train data
-
-MBEST (MANUAL COOKS)
-```{r}
-prob = predict(mb, newdata = daux, type = "response")
-prob = ifelse(prob<0.5,0,1)
-confusionMatrix(data = as.factor(prob), reference = daux$target)
-```
-
-MBAUX (1% COOKS)
-```{r}
-prob = predict(mbest, newdata = df, type = "response")
-prob = ifelse(prob<0.5,0,1)
-confusionMatrix(data = as.factor(prob), reference = df$target)
-```
-
-#Test data
-
-MBEST (MANUAL COOKS)
 ```{r}
 prob = predict(mb, newdata = test, type = "response")
 test$prob = ifelse(prob<0.5,0,1)
