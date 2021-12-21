@@ -622,6 +622,7 @@ influencePlot(mb)
 The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated without those observations. 
 ```{r}
 # 1680 %in% which(cook<cook_cut)
+daux = df
 df = df[which(cook<cook_cut),]
 
 mbest = glm(formula = target ~ poly(n.experience, 2) + education_level + 
@@ -632,43 +633,34 @@ mbest = glm(formula = target ~ poly(n.experience, 2) + education_level +
 AIC(mb, mbest)
 
 # Option 2 to evaluate
-mb$null.deviance / (3701 - mb$rank)
-mbest$null.deviance / (nrow(df) - mbest$rank)
-```
+mb$deviance / (3701 - mb$rank)
+mbest$deviance / (nrow(df) - mbest$rank)
 
-```{r}
-caux = cooks.distance(mbest)
-Boxplot(caux)
+influencePlot(mbest)
 ```
 
 ### Model Performance Evaluation
 
 ROC Curve Plot (WIP):
 ```{r}
-# library(pROC)
-# prob=predict(mbest, type=c("response"))
-# df$prob=prob
-# g = roc(target ~ prob, data = df)
-# plot(g)
+library(pROC)
+prob=predict(mbest, type=c("response"))
+df$prob=prob
+g = roc(target ~ prob, data = df)
+plot(g)
 ```
 
 Area under the ROC Curve:
 ```{r}
 # mbest
 prob = predict(mb, type=c("response"))
-auc(df$target, prob)
+auc(daux$target, prob)
 
 #mbaux
 prob = predict(mbest, type=c("response"))
-auc(daux$target, prob)
+auc(df$target, prob)
 ```
 
-Confusion matrix on working set
-```{r}
-prob = predict(mbest, newdata = daux, type = "response")
-prob = ifelse(prob<0.5,0,1)
-confusionMatrix(data = as.factor(prob), reference = daux$target)
-```
 
 Confusion matrix on the test set. First the same transformations that have been done during the modelling steps have to be applied to the test set 
 ```{r}
@@ -712,18 +704,11 @@ prob = ifelse(prob<0.5,0,1)
 confusionMatrix(data = as.factor(prob), reference = df$target)
 ```
 
-Test data (Aixo no esta ben fet pero bueno era per curiositat)
+#Test data
 
 MBEST (MANUAL COOKS)
 ```{r}
 prob = predict(mb, newdata = test, type = "response")
-test$prob = ifelse(prob<0.5,0,1)
-confusionMatrix(data = as.factor(test$prob), reference = test$target)
-```
-
-MBAUX(1% COOKS)
-```{r}
-prob = predict(mbest, newdata = test, type = "response")
 test$prob = ifelse(prob<0.5,0,1)
 confusionMatrix(data = as.factor(test$prob), reference = test$target)
 ```
