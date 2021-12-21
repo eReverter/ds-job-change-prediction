@@ -38,3 +38,4 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 src/backup.Rmd
+data/jobs_complete.csv

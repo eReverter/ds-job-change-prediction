@@ -54,11 +54,6 @@ plot_path = file.path(getwd(), "plots")
 
 # Data Exploration
 
-Load the dataset:
-```{r}
-df = read.csv(file.path(data_path, "jobs.csv"))
-```
-
 Sample from the original dataset:
 ```{r, eval=F}
 data = read.csv(file.path(data_path, "aug_train.csv"))
@@ -66,6 +61,11 @@ set.seed(020198)
 sample = sample(1:nrow(data), 5000)
 df = data[sample,]
 write.csv(df, file.path(data_path, "jobs.csv"), row.names = FALSE)
+```
+
+Or load the dataset in case it is already stored:
+```{r}
+df = read.csv(file.path(data_path, "jobs.csv"))
 ```
 
 Skim over it:
@@ -92,7 +92,7 @@ table(df$last_new_job)
 
 ### Missing Values
 
-As it can be seen, the dataset contains a lot of missing values, in some cases even exceeding the 30% of values from an attribute. These high values conditioned the imputation methods, which was first done using logical methods. Moreover, there are observations with more than 50% of the variables as null, which have been decided to be eliminated:
+As it can be observed, the dataset contains a lot of missing values, in some cases even exceeding the 30% of values in a given attribute. These missing values might condition the imputation methods, which is first done using logic. Then, algorithms are used. Also, there is a set of 21 observations with more than 50% of the variables (that will be used) as NA, which have been decided to be deleted from the working set:
 ```{r}
 count_na = function(x) {sum(is.na(x))}
 df = df %>%
@@ -105,7 +105,7 @@ boxplot(df$count_na)
 table(df$count_na)
 ```
 
-Visualizing the missing values:
+Visualizing the missing values prior to dropping them:
 ```{r}
 library(reshape2)
 ggplot_missing <- function(data){
@@ -125,23 +125,21 @@ ggplot_missing <- function(data){
 ggplot_missing(select(df, -c("count_na")))
 ```
 
-Eliminating the observations with many NA's:
+Deleting the observations with many NA's:
 ```{r}
 df = df %>%
   filter(., count_na < 5) %>%
   select(., -c("count_na"))
 ```
 
-The rules used for logically imputation where as follow, always assuming that everyone in the dataset is currently working, as the target is looking or not for a job change:
+The rules used for logically imputation are stated as follow, always assuming that everyone in the dataset is currently working, as the target is looking or not for a job change:
 
-- If the education level is null but they are enrolled in university, the education is set to high school.
-- If major discipline is not null, the education level should be at least graduate.
-- If company information is missing, it is imputed with Unknown, as the number of missing values for company information exceeds 30%.
+- If the education_level is null but they are enrolled in a university, the education is set to high school.
+- If major_discipline is not null, the education level should be at least graduate.
+- If company_type is known and company_size is missing, it is left for imputation and vice versa. If both are missing they are labeled as Unknown, as the number of missing values for company information exceeds 30%.
 - If gender is missing, it is imputed with Unknown, as there are nearly 30% of missing values in gender.
-- If Major_Discipline is null, it is imputed with Other if the education level is Graduate, Masters or PhD, and imputed to No Major otherwise.
-- If Experience ,Last_New_Job and Company information are null, the experience is imputed to <1.
-
-- If company type is known and company size is missing, it is left for imputation and vic eversa. If both are missing they are labeled as Unknown.
+- If major_discipline is null, it is imputed with Other if the education level is Graduate, Masters or PhD, and imputed to No Major otherwise.
+- If experience , last_New_Job and company_ information are null, the experience is imputed to <1.
 
 ```{r}
 df = df %>%
@@ -186,12 +184,12 @@ df = df %>%
   select(., -c("f.enrolled"))
 ```
 
-Visualizing the logical imputation:
+Visualizing the missing values posterior to the logical imputation:
 ```{r}
 ggplot_missing(df)
 ```
 
-After the logical imputation, the NA values do not account for more than 2% in any of the categories, and it was decided to impute them with factorial analysis for mixed data. It must be noted that a new flag attribute ‘Imputed’ was created, in order to keep track of these imputed observations when modelling, as they could cause problems.
+After the logical imputation, the NA values do not account for more than 2% in any of the categories, and it has been decided to impute them with factorial analysis for mixed data. It must be noted that a new flag attribute ‘Imputed’ has been created, in order to keep track of these imputed observations when modelling, as they could cause problems.
 
 Indicator of rows which still have NA's:
 ```{r}
@@ -221,12 +219,12 @@ round(prop.table(table(res.famd$completeObs$enrolled_university))*100,1)
 summary(df$training_hours)
 ```
 
-Store complete dataset:
+Store the complete dataset:
 ```{r}
 df = data.frame(res.famd$completeObs, select(df, c("target", "city", "enrollee_id", "imputed")))
 ```
 
-Mutate strings after FAMD converted them into dummy:
+Mutate strings after FAMD converted them into dummy variables:
 ```{r}
 df = df %>%
   mutate(across(where(is.factor), ~ as.character(.))) %>%
@@ -238,7 +236,7 @@ df = df %>%
   mutate(across(where(is.character), ~ as.factor(.)))
 ```
 
-With the complete dataset, some new attributes have been created: a new numerical variable has been created from the factor experience and a new factor has been created from the variable of city development. In future steps, it will be decided which one is the most suitable for the modelling process. It must be noted that since company size had a lot of NA, it has not been converted into numerical.
+With the complete dataset, some new attributes have been crated: a new numerical variable has been created from the factor experience and a new factor has been created from the variable of city development index. In future steps, it will be decided which one is the most suitable for the modelling process. It must be noted that since company size had a lot of NA's, it has not been converted into numerical.
 
 Convert experience into a numerical variable:
 ```{r}
@@ -264,40 +262,14 @@ table(df$f.city_development_index)
 
 Write the dataset:
 ```{r, eval=F}
-write.csv(df, file.path(data_path, "jobs_compl.csv"), row.names = FALSE)
-```
-
-### Visualizations
-
-#### Barplots
-
-Algu així va bé?
-```{r}
-df %>%
-  group_by(gender, target) %>%
-  summarise(n = n()) %>%
-  ggplot(data=., aes(x=reorder(gender, -n), y=n, fill=target)) +
-  geom_bar(position="stack", stat="identity") +
-  scale_fill_brewer(palette = "Blues") +
-  geom_text(aes(label=n), position = position_stack(vjust = 0.5), size=2.9) +
-  labs(x="Gender",
-         y="Count",
-         fill="Target") #+
-  #theme(legend.position="none")
-
-# plist[[1]] = p
-# ggsave(file=file.path(plot_path,"bar_transmission.png"), plot=p)
+write.csv(df, file.path(data_path, "jobs_complete.csv"), row.names = FALSE)
 ```
 
 ### Outlier treatment
 
-Univariate outliers can not be seen in the dataset for the two numerical variables present. One could think that training_hours contains some outliers, as they are above the extreme threshold. However, they are not too extreme and all of them have a very plausible value, hence imputation would not be a good practice in this case.
-
+Univariate outliers can not be seen in the dataset for the two numerical variables. One could think that training_hours contains some outliers, as they are above the extreme threshold. However, they are not too extreme and all of them have a very plausible value, hence imputation would not be a good practice in this case.
 ```{r, eval=F}
-# BOXPLOT CITY DEVELOPMENT
-
 extreme_out = quantile(df$training_hours)[[4]]+3*IQR(df$training_hours)
-
 
 ggplot(data = df, aes(x="", y=training_hours)) +
   geom_boxplot(width=0.5) +
@@ -316,18 +288,81 @@ num_outliers
 outliers = df %>%
   filter(., training_hours > extreme_out)
 
-prop.table(table(df$gender))
-prop.table(table(outliers$gender))
-prop.table(table(df$relevent_experience))
-prop.table(table(outliers$relevent_experience))
-prop.table(table(df$enrolled_university))
-prop.table(table(outliers$enrolled_university))
-prop.table(table(df$education_level))
-prop.table(table(outliers$education_level))
-prop.table(table(df$major_discipline))
-prop.table(table(outliers$major_discipline))
-prop.table(table(df$last_new_job))
-prop.table(table(outliers$last_new_job))
+# prop.table(table(df$gender))
+# prop.table(table(outliers$gender))
+# prop.table(table(df$relevent_experience))
+# prop.table(table(outliers$relevent_experience))
+# prop.table(table(df$enrolled_university))
+# prop.table(table(outliers$enrolled_university))
+# prop.table(table(df$education_level))
+# prop.table(table(outliers$education_level))
+# prop.table(table(df$major_discipline))
+# prop.table(table(outliers$major_discipline))
+# prop.table(table(df$last_new_job))
+# prop.table(table(outliers$last_new_job))
+```
+
+### Visualizations
+
+Let's take a look at the categorical variables with which the modelling is done.
+
+```{r}
+plist = list()
+cat_vars = c("gender", "relevent_experience", "enrolled_university", "education_level", "major_discipline", "company_size", "company_type", "last_new_job")
+```
+
+
+```{r}
+for (i in 1:(length(cat_vars))) {
+  plist[[i]] = df %>%
+    group_by(!!as.name(cat_vars[i]), target) %>%
+    summarise(n = n()/nrow(df)) %>%
+    ggplot(data=., aes(x=reorder(!!as.name(cat_vars[i]), -n), y=n, fill=target)) +
+    geom_bar(position="stack", stat="identity") +
+    scale_fill_brewer(palette = "Blues") +
+    scale_y_continuous(limits=c(0, 1)) +
+    geom_text(aes(label=sprintf("%0.2f", round(n, digits = 2))), position = position_stack(vjust = 0.5), size=2.9) +
+    labs(x=cat_vars[i],
+           fill="Target") +
+    theme(legend.position="none") +
+    theme(axis.title.y=element_blank()) + 
+    scale_x_discrete(labels = function(labels) {
+      fixedLabels = c()
+      for (l in 1:length(labels)) {
+        fixedLabels[l] = paste0(ifelse(l %% 2 == 0, '', '\n'), labels[l])
+      }
+      return(fixedLabels)
+    })
+}
+
+p = df %>%
+    group_by(!!as.name(cat_vars[i]), target) %>%
+    summarise(n = n()) %>%
+    ggplot(data=., aes(x=reorder(!!as.name(cat_vars[i]), -n), y=n, fill=target)) +
+    geom_bar(position="stack", stat="identity") +
+    scale_fill_brewer(palette = "Blues") +
+    labs(x=cat_vars[i], fill="Target") +
+    guides(fill = guide_legend(nrow = 1))
+
+legend = get_legend(p + theme(legend.box.margin = margin(0, 0, 0, 12), 
+                              legend.box = "horizontal", 
+                              legend.title.align=0.5,
+                              legend.background = element_rect(linetype="solid",
+                                                               color="grey")))
+
+title = ggdraw() + draw_label("Barplots - Categorical Variables Freq.", fontface='bold')
+empty = ggdraw()
+p = plot_grid(title, empty, plotlist = plist[1:4], ncol = 2, rel_heights = c(0.2,1,1))
+q = plot_grid(title, empty, plotlist = plist[5:8], ncol = 2, rel_heights = c(0.2,1,1))
+
+pp = plot_grid(p, legend, ncol = 1, rel_heights = c(1, 0.1))
+qq = plot_grid(q, legend, ncol = 1, rel_heights = c(1, 0.1))
+
+pp
+qq
+
+# ggsave(file=file.path(plot_path,"barplot_freq1.png"), plot=pp)
+# ggsave(file=file.path(plot_path,"barplot_freq2.png"), plot=qq)
 ```
 
 # Modelization
