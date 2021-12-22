@@ -726,3 +726,4 @@ newdata = data.frame(n.experience = c(mean(df$n.experience),mean(df$n.experience
 predict(mbest,newdata,type='response')
 ```
 
+Overall, the project has proved the importance of the initial data treatment and how the decisions made by the data scientist that face the problems affect the final outcome of the model. It helped to consolidate the general workflow of creating a model from scratch and the assessements that have to be done in each of the steps.
