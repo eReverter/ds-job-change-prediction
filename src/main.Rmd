@@ -719,8 +719,10 @@ test$prob = ifelse(prob<0.5,0,1)
 confusionMatrix(data = as.factor(test$prob), reference = test$target)
 ```
 
-Predicting an outcome: 
+To wrap up, the model has been used to predict the most representative individual (i.e experience on the mean, Graduate, having reported the company size and from a very developed city). It can be seen that the model predicts that he/she is very unlikely to change jobs. Alternatively, it can be seen that by maintaining the same parameters for the individual and changing its city to a not very developed one, the probability to change increases a lot.
 ```{r}
-summary(mbest)
+newdata = data.frame(n.experience = c(mean(df$n.experience),mean(df$n.experience)), education_level = c( 'Graduate','Graduate'),company_size=c('Known','Known'),f.city_development_index = c('0.920','[0.448,0.691)'))
+
+predict(mbest,newdata,type='response')
 ```
 
