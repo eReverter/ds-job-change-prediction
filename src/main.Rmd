@@ -1,16 +1,18 @@
 ---
 title: "Assignment 2"
-author: 'Enric Reverter & Gerard Pons'
+author: "Enric Reverter & Gerard Pons"
 date: "14/10/2021"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-editor_options: 
+  word_document: default
+editor_options:
   chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE, eval=F}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 ```
 
 In this assignment, a binary model has been created to predict whether or not a candidate will work for a company, or in other words, if he or she will change jobs. The process of creating the model started from understanding and cleaning the data, which in this dataset was a challenging but very important task. Then it continued by progressively building the model, first by checking the best way to treat some variables (i.e as factor or numerical), assessing transformations, additions and interactions. After that, the residuals and influential observations were addressed, and the model was reevaluated. Finally, the predictive power of the model was assessed. The steps hereunder document this process in a more detailed way.
@@ -21,6 +23,7 @@ In this assignment, a binary model has been created to predict whether or not a 
 ## Data manipulation
 library(tidyverse)
 library(dplyr)
+options(dplyr.summarise.inform = FALSE)
 library(mice)
 library(Hmisc)
 ## Statistics
@@ -662,6 +665,7 @@ mbest = glm(formula = target ~ poly(n.experience, 2) + education_level +
 AIC(mb, mbest)
 
 influencePlot(mbest)
+influenceIndexPlot(mbest)
 ```
 
 ## Model Performance Evaluation
@@ -688,9 +692,7 @@ auc(df$target, prob)
 
 Lastly, the confusion matrix is also assessed on the test set. First of all, the same transformations that have been done during the modelling steps have to be applied to the test set.
 ```{r}
-# aux = test
-test = select(test, -c("city", "enrollee_id", "imputed"))
-
+#aux = test
 test = test %>%
   mutate(across(where(is.factor), ~ as.character(.))) %>%
   mutate(n.experience = case_when(experience == "<1" ~ "0",
@@ -710,15 +712,15 @@ table(test$f.city_development_index)
 levels(test$f.city_development_index) = c('[0.448,0.691)', '[0.691,0.878)', '[0.878,0.920)','0.920', '[0.921,0.949]')
 ```
 
-Then, the confusion matrix on the test set can be depicted in order to better assess the model. It can be observed how the model does not overfit the training data and it is much better than a random model (as already seen with AUC). Notice how the positive response (1) is in this case the negative one, and vice versa. As such, the specificity indicates how well it is being predicted that someone will change its job (0.5179). This is decent accounting for the fact that the target is imbalanced. The measures related to the person not wanting to change job are all good. Overall, the model has a good accuracy and balanced accuracy.
+Then, the confusion matrix on the test set can be depicted in order to better assess the model. It can be observed how the model does not overfit the training data and it is much better than a random model (as already seen with AUC). Notice how the positive response (1) is in this case the negative one, and vice versa. As such, the specificity indicates how well it is being predicted that someone will change its job (0.52). This is decent accounting for the fact that the target is imbalanced. The measures related to the person not wanting to change job are all good. Overall, the model has a good accuracy and balanced accuracy.
 ```{r}
-prob = predict(mb, newdata = test, type = "response")
+prob = predict(mbest, newdata = test, type = "response")
 test$prob = ifelse(prob<0.5,0,1)
 confusionMatrix(data = as.factor(test$prob), reference = test$target)
 ```
 
 Predicting an outcome: 
 ```{r}
-
+summary(mbest)
 ```
 

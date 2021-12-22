@@ -39,3 +39,5 @@ vignettes/*.pdf
 .Renviron
 src/backup.Rmd
 data/jobs_complete.csv
+src/main.docx
+src/main.pdf
