@@ -17,7 +17,7 @@ In this assignment, a binary model has been created to predict whether or not a 
 
 ### Required libraries
 
-```{r, eval=F}
+```{r, eval=F, warning=F, message=F}
 ## Data manipulation
 library(tidyverse)
 library(dplyr)
@@ -88,7 +88,7 @@ df %>%
 table(df$last_new_job)
 ```
 
-### Missing Values
+## Missing Values
 
 As it can be observed, the dataset contains a lot of missing values, in some cases even exceeding the 30% of values in a given attribute. These missing values might condition the imputation methods, which is first done using logic. Then, algorithms are used. Also, there is a set of 21 observations with more than 50% of the variables (that will be used) as NA, which have been decided to be deleted from the working set:
 ```{r}
@@ -199,7 +199,7 @@ df = df %>%
   mutate(imputed = apply(., 1, imputed_indicator))
 ```
 
-## FAMD IMPUTATION
+### FAMD Imputation
 
 Impute with FAMD method:
 ```{r}
@@ -263,7 +263,7 @@ Write the dataset:
 write.csv(df, file.path(data_path, "jobs_complete.csv"), row.names = FALSE)
 ```
 
-### Outlier treatment
+## Outlier treatment
 
 Univariate outliers can not be seen in the dataset for the two numerical variables. One could think that training_hours contains some outliers, as they are above the extreme threshold. However, they are not too extreme and all of them have a very plausible value, hence imputation would not be a good practice in this case.
 ```{r, eval=F}
@@ -300,7 +300,7 @@ outliers = df %>%
 # prop.table(table(outliers$last_new_job))
 ```
 
-### Visualizations
+## Factor Visualizations
 
 Let's take a look at the categorical variables with which the modelling is done.
 
@@ -365,9 +365,7 @@ qq
 
 # Modelization
 
-Before starting with the model, it is interesting to describe the response variable. It can be seen that it is significantly associated with all the numerical and categorical variables, except for training_hours, which sits really close to the threshold. It is also worth noting that the variables which have been kept in purpose both in numerical and categorical form are the ones that have a more significant association, meaning that the future assessment of how to treat them will be of particular interest. Overall, what can be said is that in general people who want to change jobs tend to be from less developed cities, have less experience and lower education.
-
-### CHANGE 
+Before starting with the model, it is interesting to describe the response variable. It can be seen that it is significantly associated with all the numerical and categorical variables, except for training_hours, which sits really close to the threshold. It is also worth noting that the variables which have been kept in purpose both in numerical and categorical form are the ones that have a more significant association, meaning that the future assessment of how to treat them will be of particular interest. Overall, what can be said is that in general, people who want to change jobs tend to be from less developed cities with no data regarding the company, have less experience, and a higher education.
 ```{r}
 cat = FactoMineR::catdes(df[,-c(13:15)], 12)
 cat$test.chi2
@@ -395,7 +393,6 @@ summary(m0)
 After computing the null model, it was assessed how to treat the attribute experience: as a factor or as a numerical variable. 
 
 Regarding being numerical, polynomial transformations were applied to it. It was seen that the p-value for a third degree polynomial suggests that this transformation is not needed (this conclusion can only be drawn because the variables constructed by Poly function are orthogonal), hence only a second order polynomial was kept. Using deviance tests, the comparison with the normal variable and the transformed one yield significantly different models, and with a better performance for the transformed one.
-
 ```{r}
 mnexp = glm(target ~ n.experience, data=df, family=binomial)
 summary(mnexp)
@@ -406,7 +403,7 @@ summary(mnexppoly2)
 anova(mnexp,mnexppoly2,test='Chisq')
 ```
 
-Regarding treating it as a factor, as it has more than 20 categories, some collapses have been found to improve the model results:
+Regarding experience as a factor, since it has more than 20 categories some collapses have been found to improve the model results:
 -Collapsing by quantiles
 -Collapsing the model logically in Entry Level, Junior Level, Mid Level, Senior Level and Chief Level, using some well defined year ranges for the Data Science field.
 ```{r}
@@ -430,19 +427,17 @@ df = df %>%
 groups = 5
 
 df$collapsed_exp2 = as.ordered(cut2(df$n.experience, g=groups, m=nrow(df)/groups))
-table(df$collapsed_exp)
-table(df$collapsed_exp2)
-
+# table(df$collapsed_exp)
+# table(df$collapsed_exp2)
 ```
 
-Comparing both collapsed models, the collapsed by quantiles results in the best one.
+Comparing both collapsed models, it can be seen that the one collapsed by quantiles is better.
 ```{r} 
 mcexp = glm(target ~ experience, data=df, family=binomial)
 summary(mcexp)
 
 mcexpcol = glm(target ~ collapsed_exp, data=df, family=binomial)
 mcexpcol2 = glm(target ~ collapsed_exp2, data=df, family=binomial)
-
 ```
 
 After getting the best numerical and categorical transformations for the variable, the models created with them were compared. As they are not nested models, the deviance test anova() can not be applied, and it was decided to use AIC instead. It can be clearly seen that the numerical treatment of the variable outperforms the categorical, hence is the one that will be used in the following models. 
@@ -473,7 +468,7 @@ mfcdi_tr = glm(target ~ f.city_development_index_tr, data=df, family=binomial)
 AIC(mfcdi, mfcdi_tr)
 ```
 
-After having chosen the best variables to work with, the focus was firstly on the two numerical variables, whose models were compared with and without interactions. As it can be seen with the deviance test, adding training hours to the model, either as an interaction or just addition, does not yield a statistically different model, hence only the second order transformation to experience is kept.
+After having chosen the best type of variables to work with, the focus is firstly set on the two numerical variables, whose models are compared with and without interactions. As it can be seen with the deviance test, adding training hours to the model, either as an interaction or just an addition, does not yield a statistically different model, hence only the second order transformation of experience is kept.
 ```{r}
 m1 = glm(target ~ training_hours, data=df, family=binomial)
 m2 = glm(target ~ poly(n.experience,2), data=df, family=binomial)
@@ -505,14 +500,16 @@ After that, the additive effect of variables is explored by using a step functio
 df = select(df, -c("experience", "collapsed_exp", "collapsed_exp2", "city_development_index", "f.city_development_index_tr"))
 m5 = glm(target ~ poly(n.experience,2) + . - imputed, data=df, family=binomial)
 maic = step(m5)
+summary(maic)
 vif(maic)
+
 anova(m2,maic,test="Chisq")
 AIC(m2,maic)
-summary(maic)
 ```
 
-Analyze collapsed categories looking at the pvalues of the AIC step:
+Some factors still have a lot of levels, but two of them can be further collapsed to improve the model results:
 ```{r}
+# Company size collapse
 aux = df %>% 
   mutate(across(where(is.factor), ~ as.character(.))) %>%
   mutate(company_size = case_when(company_size != "Unknown" ~ "Known",
@@ -524,6 +521,7 @@ maux = glm(formula = target ~ poly(n.experience, 2) + relevent_experience +
     training_hours + f.city_development_index, family = binomial, 
     data = aux)
 
+# Education level collapse
 aux2 = aux %>% 
   mutate(across(where(is.factor), ~ as.character(.))) %>%
   mutate(education_level = case_when(education_level %in% c("Masters", "Phd") ~ "MastersPhd",
@@ -536,7 +534,7 @@ maux2 = glm(formula = target ~ poly(n.experience, 2) + relevent_experience +
     data = aux2)
 ```
 
-To check for interactions the step function was used again, but this time using the BIC criterion,  in order to be more restrictive. The BIC criterion removed all of the possible interactions, hence model resulting from the AIC step is the resulting one.
+To check for interactions the step function was used again, but this time using the BIC criterion in order to be more restrictive. The BIC criterion removed almost all the possible interactions but the one between company size and city index development (factorized).
 ```{r}
 mbic = step(maux, scope = . ~ .^2, k = log(nrow(df)))
 mbic2 = step(maux2, scope = . ~ .^2, k = log(nrow(df)))
@@ -545,12 +543,12 @@ AIC(maic, maux, maux2, mbic, mbic2) # Go with mbic2
 summary(mbic2)
 
 df = aux2
-
 mb = mbic2
 ```
 
-## MODEL INTERPRETATION
+Henceforth, the model resulting from the bic step is the one studied.
 
+## Model Interpretation ### Explain
 
 The model formula is as follows:
 
@@ -574,20 +572,18 @@ summary(mb)
 coef(mb)
 ```
 
+## Model Diagnostics
 
-### Model Diagnostics
-
-The added variable plots, which can bee seen in the Annex, do not show any alarming behavior and the same can be said for the MarginalModelPlots. Regarding the residualPlots, there is no much to be said, as overall the behavior is acceptable.
+The added variable plots, which can bee seen in the Annex, do not show any alarming behavior and the same can be said for the MarginalModelPlots. Regarding the residualPlots, there is not much to be said as overall the behavior is acceptable. In the allEffects plots, it can be observed how the probabilities of wanting to change jobs decreses with experience, increases for higher levels of education, and is sligthly higher when the company information is not provided. There is a clear difference in developed countries where company information is provided or not.
 
 ```{r}
 avPlots(mb)
 marginalModelPlots(mb)
 residualPlots(mb)
-allEffects(mb)
 plot(allEffects(mb))
 ```
 
-Studentized Residuals: Some outliers have been found in them, but they do not have,in any case, a value greater than 3. It can be seen that they are all people who want to change jobs, and contrary to the whole dataset, the vast majority of them are only high school graduates (hence no major) and all of them had specified the company size. Moreover, performing an outlierTest only one observation is detected, but it will also be detected and removed when assessing the cook's distance.
+Studentized Residuals: Some outliers have been found in them, but they do not have,in any case, a value greater than 3. It can be seen that they are all people who want to change jobs, and contrary to the whole dataset, the vast majority of them are only high school graduates (hence no major). Also, all of them had specified the company size. Moreover, when performing an outlierTest only one observation is detected, but it will also be detected and removed when assessing the cook's distance.
 ```{r}
 n = dim(df)[1]
 p = mb$rank
@@ -605,19 +601,18 @@ summary(aux)
 
 outlierTest(mb) # The outlier is already taken into account in the cooks distance
 
-# Li enxufo tots encara que mirant nom'es les variables utilizades en el model hauria de ser suficient entenc
-prop.table(table(aux$gender)); prop.table(table(df$gender))
-prop.table(table(aux$relevent_experience)); prop.table(table(df$relevent_experience))
-prop.table(table(aux$enrolled_university)); prop.table(table(df$enrolled_university))
-prop.table(table(aux$education_level)); prop.table(table(df$education_level))
-prop.table(table(aux$major_discipline)); prop.table(table(df$major_discipline))
-prop.table(table(aux$company_size)); prop.table(table(df$company_size))
-prop.table(table(aux$company_type)); prop.table(table(df$company_type))
-prop.table(table(aux$last_new_job)); prop.table(table(df$last_new_job))
-prop.table(table(aux$training_hours)); prop.table(table(df$training_hours))
-prop.table(table(aux$n.experience)); prop.table(table(df$n.experience))
-prop.table(table(aux$f.city_development_index)); prop.table(table(df$f.city_development_index))
-prop.table(table(aux$target)); prop.table(table(df$target))
+# prop.table(table(aux$gender)); prop.table(table(df$gender))
+# prop.table(table(aux$relevent_experience)); prop.table(table(df$relevent_experience))
+# prop.table(table(aux$enrolled_university)); prop.table(table(df$enrolled_university))
+# prop.table(table(aux$education_level)); prop.table(table(df$education_level))
+# prop.table(table(aux$major_discipline)); prop.table(table(df$major_discipline))
+# prop.table(table(aux$company_size)); prop.table(table(df$company_size))
+# prop.table(table(aux$company_type)); prop.table(table(df$company_type))
+# prop.table(table(aux$last_new_job)); prop.table(table(df$last_new_job))
+# prop.table(table(aux$training_hours)); prop.table(table(df$training_hours))
+# prop.table(table(aux$n.experience)); prop.table(table(df$n.experience))
+# prop.table(table(aux$f.city_development_index)); prop.table(table(df$f.city_development_index))
+# prop.table(table(aux$target)); prop.table(table(df$target))
 ```
 
 Hat Values: The cut off for this assessment has been 4 times the mean,as the dataset can be considered big enough. Regarding the description of the observations that fall under the criterion, there is a large proportion of people with no experience, with only primary school education (hence no major) and in this case all of them have not specified the company. As the had values indicate the leverage, these outliers have not been removed as the overall effect will be assessed with Cook's distance, taking into account discrepancy.
@@ -635,7 +630,6 @@ summary(aux)
 ```
 
 Cook's distance: For the Cook's distance criterion, a threshold had to be defined to match the need of our model as a group of observations can clearly be seen as outlier far from the main group of observations. As before, it can be seen that the proportions for people with no experience and with primary school education. Moreover, all of them want to change jobs. Fortunately, none of the resulting influential observations is one of the ones that were imputed in the previous steps.
-
 ```{r}
 cook = cooks.distance(mb)
 lc = Boxplot(cook, id=list(n=18))
@@ -647,14 +641,15 @@ abline(h=cook_cut, col=2)
 aux = df[which(cook>cook_cut),]
 summary(aux)
 ```
-The influential data can be clearly seen with the help of the influence plot:
+
+The influential data can be clearly seen with the help of an influence plot:
 ```{r}
 influencePlot(mb)
 ```
 
-### Reevaluate the model
+## Reevaluate the model
 
-The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated without those observations. The two models have been evaluated firstly with AIC model always knowing that it is not a strictly accurate comparisson as the number of observations differs from one model to the other, but as it is only in 7 observations some a general intuition of the behaviour can be obtained. It can be seen that the new reevaluated model seems to be better, and the influencePlot results are more accurate. 
+The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated without those observations. The two models have been evaluated firstly with AIC, knowing that it is not a strictly accurate comparison as the number of observations differs from one model to the other. Since it only differs by 7 observations some general intuition of the behaviour can be obtained. Thus, it can be seen that the new reevaluated model seems to be better, and the influencePlot results are much more accurate. 
 ```{r}
 # 1680 %in% which(cook<cook_cut)
 daux = df
@@ -664,21 +659,14 @@ mbest = glm(formula = target ~ poly(n.experience, 2) + education_level +
     company_size + f.city_development_index + company_size:f.city_development_index, 
     family = binomial, data = df)
 
-
-influencePlot(mbest)
-
-# Option 1 to evaluate
 AIC(mb, mbest)
 
-# Option 2 to evaluate
-mb$deviance / (3701 - mb$rank)
-mbest$deviance / (nrow(df) - mbest$rank)
-
+influencePlot(mbest)
 ```
 
-### Model Performance Evaluation
+## Model Performance Evaluation
 
-ROC Curve Plot (WIP):
+Now that the model has been improved, the ROC curve can be assessed to further diagnose its performance. The area under the curve (AUC) is computed for both models, which also serves as an indicator to compare them. First, the curve for the reevaluated model can be depicted, then the AUC's are displayed.
 ```{r}
 library(pROC)
 prob=predict(mbest, type=c("response"))
@@ -687,37 +675,18 @@ g = roc(target ~ prob, data = df)
 plot(g)
 ```
 
-Area under the ROC Curve:
-The Area Under the Curve has been assessed for the test set, and a 0.5% improvement can be seen from the reevaluated model, which supports the previous conclusion that the removing the influential observations was beneficial. Regarding the value, 81.3% can be considered a very good model. 
+The AUC has been assessed for the working set, where a 0.5% improvement can be seen from the reevaluated model, which supports the previous conclusion that the removing the influential observations was beneficial. Regarding its value, 81.3% can be considered a very good model, even more so considering the imbalance in the response variable.
 ```{r}
-# mbest
+# Model
 prob = predict(mb, type=c("response"))
 auc(daux$target, prob)
 
-#mbaux
+# Reevaluated model
 prob = predict(mbest, type=c("response"))
 auc(df$target, prob)
 ```
 
-EXTRA - Option 3 to evaluate which model is better
-
-
-MBEST (MANUAL COOKS) #Aixo ara és sencer vs treient cooks no?
-```{r}
-prob = predict(mb, newdata = daux, type = "response")
-prob = ifelse(prob<0.5,0,1)
-confusionMatrix(data = as.factor(prob), reference = daux$target)
-```
-
-MBAUX (1% COOKS)
-```{r}
-prob = predict(mbest, newdata = df, type = "response")
-prob = ifelse(prob<0.5,0,1)
-confusionMatrix(data = as.factor(prob), reference = df$target)
-```
-
-
-Lastly, the confusion matrix was assessed on the test set. First of all, the same transformations that have been done during the modelling steps have to be applied to the test set.
+Lastly, the confusion matrix is also assessed on the test set. First of all, the same transformations that have been done during the modelling steps have to be applied to the test set.
 ```{r}
 # aux = test
 test = select(test, -c("city", "enrollee_id", "imputed"))
@@ -741,9 +710,15 @@ table(test$f.city_development_index)
 levels(test$f.city_development_index) = c('[0.448,0.691)', '[0.691,0.878)', '[0.878,0.920)','0.920', '[0.921,0.949]')
 ```
 
-
+Then, the confusion matrix on the test set can be depicted in order to better assess the model. It can be observed how the model does not overfit the training data and it is much better than a random model (as already seen with AUC). Notice how the positive response (1) is in this case the negative one, and vice versa. As such, the specificity indicates how well it is being predicted that someone will change its job (0.5179). This is decent accounting for the fact that the target is imbalanced. The measures related to the person not wanting to change job are all good. Overall, the model has a good accuracy and balanced accuracy.
 ```{r}
 prob = predict(mb, newdata = test, type = "response")
 test$prob = ifelse(prob<0.5,0,1)
 confusionMatrix(data = as.factor(test$prob), reference = test$target)
 ```
+
+Predicting an outcome: 
+```{r}
+
+```
+
