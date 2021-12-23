@@ -542,7 +542,7 @@ To check for interactions the step function was used again, but this time using 
 mbic = step(maux, scope = . ~ .^2, k = log(nrow(df)))
 mbic2 = step(maux2, scope = . ~ .^2, k = log(nrow(df)))
 
-AIC(maic, maux, maux2, mbic, mbic2) # Go with mbic2
+AIC(maic, maux, maux2, mbic, mbic2) 
 summary(mbic2)
 
 df = aux2
@@ -654,7 +654,6 @@ influencePlot(mb)
 
 The outliers detected with the Cook's distance method have been removed from the dataset, and the model has been reevaluated without those observations. The two models have been evaluated firstly with AIC, knowing that it is not a strictly accurate comparison as the number of observations differs from one model to the other. Since it only differs by 7 observations some general intuition of the behaviour can be obtained. Thus, it can be seen that the new reevaluated model seems to be better, and the influencePlot results are much more accurate. 
 ```{r}
-# 1680 %in% which(cook<cook_cut)
 daux = df
 df = df[which(cook<cook_cut),]
 
@@ -692,7 +691,7 @@ auc(df$target, prob)
 
 Lastly, the confusion matrix is also assessed on the test set. First of all, the same transformations that have been done during the modelling steps have to be applied to the test set.
 ```{r}
-#aux = test
+
 test = test %>%
   mutate(across(where(is.factor), ~ as.character(.))) %>%
   mutate(n.experience = case_when(experience == "<1" ~ "0",
@@ -722,10 +721,11 @@ confusionMatrix(data = as.factor(test$prob), reference = test$target)
 Continuing with the predictive power of the model, a Hoslem test has been run and the null hypothesis has been clearly rejected, stating that the model does not fit well the data. Regarding some Pseduo R^2 metrics, which have to be assessed with caution, they are not very promising as well. All of this results could well be from the   
 ```{r}
 library(ResourceSelection)
-hoslem.test(df$target, fitted(mbest))
+hoslem.test(test$target, prob)
 
-library(DescTools)
-PseudoR2(mbest, which='all')
+prob = predict(mbest, newdata = test, type = "response")
+test$prob = ifelse(prob<0.5,0,1)
+confusionMatrix(data = as.factor(test$prob), reference = test$target)
 ```
 
 
