@@ -19,7 +19,7 @@ In this assignment, a binary model has been created to predict whether or not a 
 
 ### Required libraries
 
-```{r, eval=F, warning=F, message=F}
+```{r, eval=T, warning=F, message=F}
 ## Data manipulation
 library(tidyverse)
 library(dplyr)
